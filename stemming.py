@@ -1,10 +1,7 @@
 """
-Module for stemming the word.
+Module for stemming Russian words.
 
-Stemming is the process of reducing inflected (or sometimes derived)
-words to their word stem, base or root form. (c) Wikipedia
-
-Note: works for Russian language only
+https://en.wikipedia.org/wiki/Stemming
 """
 
 
@@ -16,7 +13,7 @@ STEMMER = RussianStemmer()
 
 def stem(word):
     """
-    Stems the word.
+    Stems given word using snowball algorithm.
     :param word: string that contains one word
     :return: string that contains stemmed word
     """

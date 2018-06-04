@@ -3,12 +3,14 @@ Module for logging
 """
 import logging
 from logging.handlers import TimedRotatingFileHandler
+from logging import Logger
+import os.path
 
 # Path to write
-LOG_FILE_PATH = 'data/logs/logs.txt'
+LOG_FILE_PATH = os.path.join('data', 'logs', 'logs.txt')
 
 
-def get_logger(tag: str) -> object:
+def get_logger(tag: str) -> Logger:
     """
     Produces logger with given message tag
     which will write logs to the console and file stored in LOG_FILE_PATH directory
@@ -18,7 +20,7 @@ def get_logger(tag: str) -> object:
 
     logger = logging.getLogger(tag)
     logger.setLevel(logging.DEBUG)
-    # create console handler with a higher log level
+    # create console handler which logs even debug messages
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages

@@ -56,20 +56,22 @@ class PredefinedReplyAgent:
 
         reply_variants = list()
 
+        # getting reply variants by taking and stemming all nouns from text
+        # and searching for predefined replies containing these nouns
         for sentence in sentences:
+            # getting nouns
             nouns = text_processing.get_nouns(sentence)
             for noun in nouns:
+                # stemming nouns
                 stemmed_noun = text_processing.stem(noun)
+                # searching for known nouns
                 if stemmed_noun in self.stemmed_nouns:
                     for noun in self.stemmed_nouns[stemmed_noun]:
+                        # adding sentences with this noun
                         reply_variants += self.noun_sentences[noun]
 
-        if reply_variants:
-            if len(reply_variants) > 1:
-                reply = random.choice(reply_variants)
-            else:
-                reply = reply_variants[0]
-        else:
-            reply = None
-
-        return reply
+        if not reply_variants:
+            return None
+        if len(reply_variants) > 1:
+            return random.choice(reply_variants)
+        return reply_variants[0]

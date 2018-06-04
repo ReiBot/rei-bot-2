@@ -19,7 +19,7 @@ def read(file_name: str) -> JSON_deserializable:
     # encoding='utf-8-sig' is used for omitting \ufeff symbol
     # in the beginning of the string after reading from file
     with open(file_name, 'r', encoding='utf-8-sig') as file:
-        # load data from json file as dictionary
+        # load data from json file as an object
         data = json.load(file)
 
     return data

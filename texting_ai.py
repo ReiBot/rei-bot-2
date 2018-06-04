@@ -4,7 +4,7 @@ This module contains agents that gives text output on given input text
 
 import json
 import random
-from typing import List, Dict
+from typing import List, Dict, Optional
 from nltk.tokenize import sent_tokenize
 import nouns_finder
 import stemming
@@ -49,7 +49,7 @@ class PredefinedReplyAgent:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
 
-    def get_predefined_reply(self, input_text: str) -> str:
+    def get_predefined_reply(self, input_text: str) -> Optional[str]:
         """
         Returns text output by
         search known nouns in the input text
@@ -62,20 +62,12 @@ class PredefinedReplyAgent:
 
         reply_variants = list()
 
-        # for each sentence
         for sentence in sentences:
-            # take all nouns
             nouns = nouns_finder.get_nouns(sentence)
-            # for each noun
             for noun in nouns:
-                # get its stemmed form
                 stemmed_noun = stemming.stem(noun)
-                # if the stemmed form is known
                 if stemmed_noun in self.stemmed_nouns:
-                    # take all possible nouns from that the stemmed can be derived
-                    # and for each
                     for noun in self.stemmed_nouns[stemmed_noun]:
-                        # add all sentences to variants of reply
                         reply_variants += self.noun_sentences[noun]
 
         if reply_variants:

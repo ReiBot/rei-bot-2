@@ -3,12 +3,13 @@ Module for reading and writing json files
 """
 
 import json
-from typing import Dict, TypeVar, List
+from typing import NewType
 
-T = TypeVar('T', List, Dict)
+JSON_serializable = NewType()
+JSON_deserializable = NewType()
 
 
-def read(file_name: str) -> T:
+def read(file_name: str) -> JSON_deserializable:
     """
     Reads json file
     :param file_name: name of file to read
@@ -24,7 +25,7 @@ def read(file_name: str) -> T:
     return data
 
 
-def write(data: T, file_name: str) -> None:
+def write(data: JSON_serializable, file_name: str) -> None:
     """
     Writes to json file
     :param data: data to write

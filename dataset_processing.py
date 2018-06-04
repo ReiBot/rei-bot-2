@@ -2,6 +2,7 @@
 Module for converting data set into files used by agent
 """
 
+from typing import List, Dict
 from nltk.tokenize import sent_tokenize
 import json_manager
 import nouns_finder
@@ -25,7 +26,7 @@ def read_text_file(file_name: str) -> str:
 def write_sentences_and_nouns(text_file_name: str,
                               json_file_name: str = "sentences_and_nouns.json") -> None:
     """
-    Reads text file and writes json with with object containing sentences as attributes
+    Reads text file and writes json with object containing sentences as attributes
     and lists of nouns in corresponding sentence as values.
     :param text_file_name: name of the input text file
     :param json_file_name: name of the output json file
@@ -36,10 +37,10 @@ def write_sentences_and_nouns(text_file_name: str,
     input_text = read_text_file(text_file_name)
 
     # sentences in the text
-    sentences = sent_tokenize(input_text)
+    sentences: List[str] = sent_tokenize(input_text)
 
-    # dictionary to serialized for json
-    sentences_and_nouns = dict()
+    # dictionary to be serialized for json
+    sentences_and_nouns: Dict[str, List[str]] = dict()
 
     # searching for nouns
     for sentence in sentences:
@@ -64,7 +65,7 @@ def write_nouns_and_stemmed(input_json_name="sentences_and_nouns.json",
 
     input_data = json_manager.read(input_json_name)
 
-    nouns_and_stemmed = dict()
+    nouns_and_stemmed: Dict[str, str] = dict()
 
     # iterating through input data and storing nouns with stemmed forms
     for _, nouns in input_data.items():

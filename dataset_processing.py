@@ -2,23 +2,27 @@
 Module for converting data set into files used by agent
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from nltk.tokenize import sent_tokenize
 import json_manager
 import nouns_finder
 import stemming
 
 
-def read_text_file(file_name: str) -> str:
+def read_text_file(file_name: str) -> Optional[str]:
     """
     Reads file and returns its text
     :param file_name: name of a file to read
     :return: text of the file
     """
-    # encoding='utf-8-sig' is used for omitting \ufeff symbol
-    # in the beginning of the string after reading from file
-    with open(file_name, 'r', encoding='utf-8-sig') as text_file:
-        text = text_file.read()
+
+    if file_name:
+        # encoding='utf-8-sig' is used for omitting \ufeff symbol
+        # in the beginning of the string after reading from file
+        with open(file_name, 'r', encoding='utf-8-sig') as text_file:
+            text = text_file.read()
+    else:
+        text = None
 
     return text
 
@@ -44,7 +48,6 @@ def write_sentences_and_nouns(text_file_name: str,
 
     # searching for nouns
     for sentence in sentences:
-        print(sentence)
         nouns = nouns_finder.get_nouns(sentence)
         # set is not json-serializable so has to be converted to list
         sentences_and_nouns[sentence] = list(nouns)
@@ -53,8 +56,8 @@ def write_sentences_and_nouns(text_file_name: str,
     json_manager.write(sentences_and_nouns, json_file_name)
 
 
-def write_nouns_and_stemmed(input_json_name="sentences_and_nouns.json",
-                            output_json_name="nouns_and_stemmed.json") -> None:
+def write_nouns_and_stemmed(input_json_name: str="sentences_and_nouns.json",
+                            output_json_name: str="nouns_and_stemmed.json") -> None:
     """
     Writes json with nouns and their stemmed forms
     from json with sentences and nouns

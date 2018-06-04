@@ -15,13 +15,13 @@ def read_text_file(file_name: str) -> Optional[str]:
     :return: text of the file
     """
 
-    if file_name:
-        # encoding='utf-8-sig' is used for omitting \ufeff symbol
-        # in the beginning of the string after reading from file
-        with open(file_name, 'r', encoding='utf-8-sig') as text_file:
-            text = text_file.read()
-    else:
-        text = None
+    if not file_name:
+        return None
+
+    # encoding='utf-8-sig' is used for omitting \ufeff symbol
+    # in the beginning of the string after reading from file
+    with open(file_name, 'r', encoding='utf-8-sig') as text_file:
+        text = text_file.read()
 
     return text
 

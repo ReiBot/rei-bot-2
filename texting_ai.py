@@ -1,16 +1,19 @@
 """
-This module contains agent that gives text output on given input text
+This module contains agents that gives text output on given input text
 """
 
 import json
 import random
+from typing import List, Dict
 from nltk.tokenize import sent_tokenize
 import nouns_finder
 import stemming
 
 
 class PredefinedReplyAgent:
-
+    """
+    Class for agent that sends one of the predefined replies or nothing
+    """
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # get dictionary from json file
         # encoding='utf-8-sig' is used for omitting \ufeff symbol
@@ -21,7 +24,7 @@ class PredefinedReplyAgent:
 
         # dictionary with words as keys
         # and array of sentences that contain these words
-        self.noun_sentences = dict()
+        self.noun_sentences: Dict[str, List[str]] = dict()
 
         # iterating through phrases data and storing nouns with sentences
         for sentence, nouns in phrases_data.items():
@@ -35,9 +38,13 @@ class PredefinedReplyAgent:
             # load data from input json
             nouns_data = json.load(input_json_file)
 
-        self.stemmed_nouns = dict()
+        # dictionary with stemmed forms as keys
+        # and lists of possible nouns that can have this stemmed form as values
+        self.stemmed_nouns: Dict[str, List[str]] = dict()
 
         for noun, stemmed in nouns_data.items():
+            # if the stemmed form occurs the first time
+            # add entry with an empty list
             if stemmed not in self.stemmed_nouns:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
@@ -55,19 +62,28 @@ class PredefinedReplyAgent:
 
         reply_variants = list()
 
+        # for each sentence
         for sentence in sentences:
+            # take all nouns
             nouns = nouns_finder.get_nouns(sentence)
+            # for each noun
             for noun in nouns:
+                # get its stemmed form
                 stemmed_noun = stemming.stem(noun)
+                # if the stemmed form is known
                 if stemmed_noun in self.stemmed_nouns:
+                    # take all possible nouns from that the stemmed can be derived
+                    # and for each
                     for noun in self.stemmed_nouns[stemmed_noun]:
-                        if noun in self.noun_sentences:
-                            reply_variants += self.noun_sentences[noun]
+                        # add all sentences to variants of reply
+                        reply_variants += self.noun_sentences[noun]
 
         if reply_variants:
             if len(reply_variants) > 1:
-                return random.choice(reply_variants)
+                reply = random.choice(reply_variants)
             else:
-                return reply_variants[0]
+                reply = reply_variants[0]
         else:
-            return str()
+            reply = None
+
+        return reply

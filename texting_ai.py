@@ -19,15 +19,21 @@ class PredefinedReplyAgent:
 
         # dictionary with words as keys
         # and array of sentences that contain these words
-        self.noun_sentences: Dict[str, List[str]] = dict()
+        self.noun_sentences: Dict[Optional[str], List[str]] = dict()
+
+        # for sentences without nouns
+        self.noun_sentences[None] = list()
 
         # iterating through phrases data and storing nouns with sentences
         for sentence, nouns in phrases_data.items():
-            for noun in nouns:
-                # if the noun occurs the first time set an empty array
-                if noun not in self.noun_sentences:
-                    self.noun_sentences[noun] = list()
-                self.noun_sentences[noun].append(sentence)
+            if not nouns:
+                self.noun_sentences[None].append(sentence)
+            else:
+                for noun in nouns:
+                    # if the noun occurs the first time set an empty array
+                    if noun not in self.noun_sentences:
+                        self.noun_sentences[noun] = list()
+                    self.noun_sentences[noun].append(sentence)
 
         # load data from input json
         nouns_data = json_manager.read(nouns_json_path)
@@ -43,12 +49,13 @@ class PredefinedReplyAgent:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
 
-    def get_predefined_reply(self, input_text: str) -> Optional[str]:
+    def get_predefined_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
         """
         Returns text output by
         search known nouns in the input text
         and giving predefined phrases as a reply
         :param input_text: text containing natural language
+        :param no_empty_reply: flag for omitting empty reply
         :return: text with the reply
         """
 
@@ -71,6 +78,8 @@ class PredefinedReplyAgent:
                         reply_variants += self.noun_sentences[noun]
 
         if not reply_variants:
+            if no_empty_reply:
+                return random.choices(self.noun_sentences[None])
             return None
         if len(reply_variants) > 1:
             return random.choice(reply_variants)

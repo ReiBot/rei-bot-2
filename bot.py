@@ -14,7 +14,6 @@ import telebot
 import texting_ai
 
 CONFIG = ConfigParser()
-
 CONFIG.read('config.ini')
 
 # webhook url
@@ -35,7 +34,7 @@ AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'senten
 async def handle(request: web.Request) -> web.Response:
     """
     Process webhook calls
-    :param request: request to held
+    :param request: request to handle
     :return: response for sender
     """
     if request.match_info.get('token') == BOT.token:
@@ -55,7 +54,8 @@ APP.router.add_post('/{token}/', handle)
 def start_reply(message: telebot.types.Message) -> None:
     """
     Handler for /start command
-    :param message: received message
+    Sends message back to user that sent /start command
+    :param message: received message by bot from user
     :return: None
     """
     BOT.send_message(message.chat.id, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
@@ -65,7 +65,8 @@ def start_reply(message: telebot.types.Message) -> None:
 def ask_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
-    :param message: received message
+    Replies to user that sent /start command
+    :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
@@ -76,8 +77,8 @@ def ask_reply(message: telebot.types.Message) -> None:
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
 def text_reply(message: telebot.types.Message):
     """
-    Handler for text messages
-    :param message: received message
+    Handler for private and group text messages from users
+    :param message: received message by bot from user
     :return: None
     """
     text = message.text

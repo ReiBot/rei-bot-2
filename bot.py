@@ -65,7 +65,7 @@ def start_reply(message: telebot.types.Message) -> None:
 def ask_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
-    Replies to user that sent /start command
+    Replies to user that sent /ask command
     :param message: received message by bot from user
     :return: None
     """

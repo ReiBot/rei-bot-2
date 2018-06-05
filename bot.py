@@ -4,11 +4,14 @@ Telegram bot module
 
 from logging import INFO
 import ssl
+import os.path
 
 from configparser import ConfigParser
 from aiohttp import web
 
 import telebot
+
+import texting_ai
 
 CONFIG = ConfigParser()
 
@@ -24,6 +27,9 @@ BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 
 # server that will listen for new messages
 APP = web.Application()
+
+AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences'),
+                                        os.path.join('data', 'language', 'nouns'))
 
 
 async def handle(request: web.Request) -> web.Response:
@@ -52,7 +58,7 @@ def start_reply(message: telebot.types.Message) -> None:
     :param message: received message
     :return: None
     """
-    pass
+    BOT.send_message(message.chat.id, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
 
 
 @BOT.message_handler(commands=['ask'])
@@ -62,7 +68,8 @@ def ask_reply(message: telebot.types.Message) -> None:
     :param message: received message
     :return: None
     """
-    pass
+    # TODO for /ask implement replying on previous message
+    BOT.reply_to(message, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
 
 
 # Handle text messages
@@ -73,7 +80,30 @@ def text_reply(message: telebot.types.Message):
     :param message: received message
     :return: None
     """
-    pass
+    text = message.text
+
+    # if private message
+    if message.chat.type == 'private':
+        BOT.send_message(message.chat.id, AGENT.get_predefined_reply(text, no_empty_reply=True))
+    # if reply on bot's message
+    elif check_reply(BOT.get_me().id, message):
+        BOT.reply_to(message, AGENT.get_predefined_reply(text, no_empty_reply=True))
+    # TODO add forward handling
+    # if group message
+    else:
+        reply = AGENT.get_predefined_reply(text)
+        if reply:
+            BOT.reply_to(message, reply)
+
+
+def check_reply(_id: int, message: telebot.types.Message) -> bool:
+    """
+    Check if the message is a reply on given user's message
+    :param _id: id of a user whose message was replied to
+    :param message: message to check
+    :return: True if message is a reply False otherwise
+    """
+    return message.reply_to_message and message.reply_to_message.from_user.id == _id
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

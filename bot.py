@@ -2,16 +2,14 @@
 Telegram bot module
 """
 
-from logging import INFO
 import ssl
 import os.path
-
 from configparser import ConfigParser
 from aiohttp import web
 
 import telebot
-
 import texting_ai
+import logger
 
 CONFIG = ConfigParser()
 CONFIG.read('config.ini')
@@ -20,7 +18,7 @@ CONFIG.read('config.ini')
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))
 URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])
 
-telebot.logger.setLevel(INFO)
+telebot.logger = logger.get_logger(__file__)
 
 BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 

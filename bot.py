@@ -28,6 +28,17 @@ APP = web.Application()
 AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences.json'),
                                         os.path.join('data', 'language', 'nouns.json'))
 
+# proxy settings
+if CONFIG['proxy']['enabled'] and bool(CONFIG['proxy']['enabled']):
+    if CONFIG['proxy']['type'] == 'http':
+        telebot.apihelper.proxy = {'http': 'http://'+CONFIG['proxy']['address']+':'+CONFIG['proxy']['port']}
+    elif CONFIG['proxy']['type'] == 'socks5':
+        telebot.apihelper.proxy \
+            = {'https': 'socks5://'+CONFIG['proxy']['user']+':'+CONFIG['proxy']['password'] +
+                        '@'+CONFIG['proxy']['address']+':'+CONFIG['proxy']['port']}
+
+BOT.send_message(73851638, AGENT.get_predefined_reply('/start', no_empty_reply=True))
+
 
 async def handle(request: web.Request) -> web.Response:
     """

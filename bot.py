@@ -16,8 +16,6 @@ import texting_ai
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
 
-print(CONFIG.sections())
-
 # webhook url
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))
 URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])

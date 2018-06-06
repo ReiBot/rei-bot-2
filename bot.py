@@ -12,7 +12,9 @@ import texting_ai
 import logger
 
 CONFIG = ConfigParser()
-CONFIG.read('config.ini')
+CONFIG.read(os.path.join('data', 'config.ini'))
+
+print(CONFIG.sections())
 
 # webhook url
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))
@@ -25,8 +27,8 @@ BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 # server that will listen for new messages
 APP = web.Application()
 
-AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences'),
-                                        os.path.join('data', 'language', 'nouns'))
+AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences.json'),
+                                        os.path.join('data', 'language', 'nouns.json'))
 
 
 async def handle(request: web.Request) -> web.Response:
@@ -63,7 +65,7 @@ def start_reply(message: telebot.types.Message) -> None:
 def ask_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
-    Replies to user that sent /start command
+    Replies to user that sent /ask command
     :param message: received message by bot from user
     :return: None
     """

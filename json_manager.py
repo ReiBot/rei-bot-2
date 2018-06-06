@@ -3,9 +3,7 @@ Module for reading and writing json files
 """
 
 import json
-from typing import NewType, Dict
-
-JSON_serializable = NewType()
+from typing import Dict
 
 
 def read(file_name: str) -> Dict:
@@ -24,7 +22,7 @@ def read(file_name: str) -> Dict:
     return data
 
 
-def write(data: JSON_serializable, file_name: str) -> None:
+def write(data: 'JSON serializable', file_name: str) -> None:
     """
     Writes to json file
     :param data: data to write

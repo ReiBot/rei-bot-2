@@ -23,7 +23,7 @@ def get_logger(tag: str) -> Logger:
     # create console handler which logs even debug messages
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.DEBUG)
-    # create file handler which logs even debug messages
+    # create file handler which logs info messages
     file_handler = TimedRotatingFileHandler(LOG_FILE_PATH,
                                             when='midnight', interval=1, backupCount=1)
     file_handler.setLevel(logging.INFO)

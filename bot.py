@@ -28,16 +28,26 @@ APP = web.Application()
 AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences.json'),
                                         os.path.join('data', 'language', 'nouns.json'))
 
-# proxy settings
-if CONFIG['proxy']['enabled'] and bool(CONFIG['proxy']['enabled']):
-    if CONFIG['proxy']['type'] == 'http':
-        telebot.apihelper.proxy = {'http': 'http://'+CONFIG['proxy']['address']+':'+CONFIG['proxy']['port']}
-    elif CONFIG['proxy']['type'] == 'socks5':
-        telebot.apihelper.proxy \
-            = {'https': 'socks5://'+CONFIG['proxy']['user']+':'+CONFIG['proxy']['password'] +
-                        '@'+CONFIG['proxy']['address']+':'+CONFIG['proxy']['port']}
 
-BOT.send_message(73851638, AGENT.get_predefined_reply('/start', no_empty_reply=True))
+def set_proxy() -> None:
+    """
+    Sets the proxy
+    :return: None
+    """
+    enabled = CONFIG.getboolean('proxy', 'enabled')
+    if enabled:
+        address = CONFIG['proxy']['address']
+        port = CONFIG['proxy']['port']
+        proxy_type = CONFIG['proxy']['type']
+        if proxy_type == 'http':
+            telebot.apihelper.proxy = {'http': f'http://{address}:{port}'}
+        elif proxy_type == 'socks5':
+            user = CONFIG['proxy']['user']
+            password = CONFIG['proxy']['port']
+            telebot.apihelper.proxy = {'https': f'socks5://{user}:{password}@{address}:{port}'}
+
+
+set_proxy()
 
 
 async def handle(request: web.Request) -> web.Response:

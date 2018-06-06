@@ -2,16 +2,14 @@
 Telegram bot module
 """
 
-from logging import INFO
 import ssl
 import os.path
-
 from configparser import ConfigParser
 from aiohttp import web
 
 import telebot
-
 import texting_ai
+import logger
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -20,7 +18,7 @@ CONFIG.read(os.path.join('data', 'config.ini'))
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))
 URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])
 
-telebot.logger.setLevel(INFO)
+telebot.logger = logger.get_logger(__file__)
 
 BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 
@@ -29,6 +27,27 @@ APP = web.Application()
 
 AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences.json'),
                                         os.path.join('data', 'language', 'nouns.json'))
+
+
+def set_proxy() -> None:
+    """
+    Sets the proxy
+    :return: None
+    """
+    enabled = CONFIG.getboolean('proxy', 'enabled')
+    if enabled:
+        address = CONFIG['proxy']['address']
+        port = CONFIG['proxy']['port']
+        proxy_type = CONFIG['proxy']['type']
+        if proxy_type == 'http':
+            telebot.apihelper.proxy = {'http': f'http://{address}:{port}'}
+        elif proxy_type == 'socks5':
+            user = CONFIG['proxy']['user']
+            password = CONFIG['proxy']['port']
+            telebot.apihelper.proxy = {'https': f'socks5://{user}:{password}@{address}:{port}'}
+
+
+set_proxy()
 
 
 async def handle(request: web.Request) -> web.Response:

@@ -197,7 +197,7 @@ class LearningAgent:
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 
-        # if there sre possible replies the remove the ones
+        # if there are possible replies the remove the ones
         # that are in the black list and return random reply
         if replies:
             for wrong_reply in black_list:

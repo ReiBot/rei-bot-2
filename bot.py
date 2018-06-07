@@ -104,7 +104,7 @@ def text_reply(message: telebot.types.Message) -> None:
 
     # if private message
     if message.chat.type == 'private':
-        BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(text, no_empty_reply=True))
+        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
     # if reply on bot's message
     elif check_reply(BOT.get_me().id, message):
         BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))

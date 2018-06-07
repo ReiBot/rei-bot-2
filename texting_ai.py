@@ -151,12 +151,9 @@ class LearningAgent:
         :return: None
         """
 
-        if right:
-            key = 'replies'
-            other_key = 'black list'
-        else:
-            key = 'black list'
-            other_key = 'replies'
+        # for right wrong cases
+        key = 'replies' if right else 'black list'
+        other_key = 'black list' if right else 'replies'
 
         sentences = sent_tokenize(input_text)
 
@@ -181,7 +178,7 @@ class LearningAgent:
         Searches for patterns in knowledge base
         that match input text and returns the results of search
         :param input_text: input text to search in
-        :return: reply if is found, black list of replies or None if nothing is found
+        :return: reply if it is found, black list of replies or None if nothing is found
         """
 
         patterns = self.knowledge_base.keys()
@@ -189,15 +186,19 @@ class LearningAgent:
         replies = list()
         black_list = list()
 
+        # for each known pattern check if the input matches
         for pattern in patterns:
             if re.search(pattern, input_text):
+                # if there no replies for matched pattern but there are non-empty black list
+                # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
-                        or not self.knowledge_base['replies']:
-                    if self.knowledge_base['black list']:
+                        or not self.knowledge_base['replies'] and self.knowledge_base['black list']:
                         black_list += self.knowledge_base['black list']
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 
+        # if there sre possible replies the remove the ones
+        # that are in the black list and return random reply
         if replies:
             for wrong_reply in black_list:
                 if wrong_reply in replies:

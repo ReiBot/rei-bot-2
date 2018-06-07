@@ -2,16 +2,14 @@
 Telegram bot module
 """
 
-from logging import INFO
 import ssl
 import os.path
-
 from configparser import ConfigParser
 from aiohttp import web
 
 import telebot
-
 import texting_ai
+import logger
 
 CONFIG = ConfigParser()
 CONFIG.read('config.ini')
@@ -20,15 +18,36 @@ CONFIG.read('config.ini')
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))
 URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])
 
-telebot.logger.setLevel(INFO)
+telebot.logger = logger.get_logger(__file__)
 
 BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 
 # server that will listen for new messages
 APP = web.Application()
 
-AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences'),
-                                        os.path.join('data', 'language', 'nouns'))
+REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
+                                           os.path.join('data', 'language', 'nouns.json'))
+
+
+def set_proxy() -> None:
+    """
+    Sets the proxy
+    :return: None
+    """
+    enabled = CONFIG.getboolean('proxy', 'enabled')
+    if enabled:
+        address = CONFIG['proxy']['address']
+        port = CONFIG['proxy']['port']
+        proxy_type = CONFIG['proxy']['type']
+        if proxy_type == 'http':
+            telebot.apihelper.proxy = {'http': f'http://{address}:{port}'}
+        elif proxy_type == 'socks5':
+            user = CONFIG['proxy']['user']
+            password = CONFIG['proxy']['port']
+            telebot.apihelper.proxy = {'https': f'socks5://{user}:{password}@{address}:{port}'}
+
+
+set_proxy()
 
 
 async def handle(request: web.Request) -> web.Response:
@@ -58,7 +77,7 @@ def start_reply(message: telebot.types.Message) -> None:
     :param message: received message by bot from user
     :return: None
     """
-    BOT.send_message(message.chat.id, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
+    BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
 
 
 @BOT.message_handler(commands=['ask'])
@@ -70,12 +89,12 @@ def ask_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     # TODO for /ask implement replying on previous message
-    BOT.reply_to(message, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
+    BOT.reply_to(message, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
 
 
 # Handle text messages
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
-def text_reply(message: telebot.types.Message):
+def text_reply(message: telebot.types.Message) -> None:
     """
     Handler for private and group text messages from users
     :param message: received message by bot from user
@@ -85,14 +104,14 @@ def text_reply(message: telebot.types.Message):
 
     # if private message
     if message.chat.type == 'private':
-        BOT.send_message(message.chat.id, AGENT.get_predefined_reply(text, no_empty_reply=True))
+        BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(text, no_empty_reply=True))
     # if reply on bot's message
     elif check_reply(BOT.get_me().id, message):
-        BOT.reply_to(message, AGENT.get_predefined_reply(text, no_empty_reply=True))
+        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
     # TODO add forward handling
     # if group message
     else:
-        reply = AGENT.get_predefined_reply(text)
+        reply = REPLY_AGENT.get_reply(text)
         if reply:
             BOT.reply_to(message, reply)
 

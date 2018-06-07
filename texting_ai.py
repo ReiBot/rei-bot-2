@@ -108,9 +108,9 @@ class LearningAgent:
     """Agent that learns what to say
     depending on user's evaluation of replies given by replying agent"""
 
-    def __init__(self, save_file_name: 'json file name'):
+    def __init__(self, save_file_name: str):
         """
-        :param save_file_name: name of a file to write learned information
+        :param save_file_name: name of a json file to write learned information
         """
 
         self.pattern_delimiter = '.*'
@@ -157,6 +157,8 @@ class LearningAgent:
 
         sentences = sent_tokenize(input_text)
 
+        # each sentence in the text is converted to regex pattern and the information
+        # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
             pattern = self.sentence_to_pattern(sentence)
 

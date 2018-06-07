@@ -190,7 +190,7 @@ class LearningAgent:
 
         # for each known pattern check if the input matches
         for pattern in patterns:
-            if re.search(pattern, input_text):
+            if re.search(pattern, input_text, re.I):
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \

@@ -12,7 +12,7 @@ import texting_ai
 import logger
 
 CONFIG = ConfigParser()
-CONFIG.read('config.ini')
+CONFIG.read(os.path.join('data', 'config.ini'))
 
 # webhook url
 URL_BASE = "https://{}:{}".format(CONFIG['server']['ip'], CONFIG.getint('server', 'port'))

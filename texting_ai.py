@@ -94,7 +94,9 @@ class NounsFindingAgent:
         for reply in black_list:
             # preventing from deleting everything
             if reply in reply_variants and (not no_empty_reply or len(reply_variants) > 1):
-                reply_variants.remove(reply)
+
+                # remove ALL occurrences of reply from black list from reply variants
+                reply_variants = list(filter(lambda a: a != reply, reply_variants))
 
         if len(reply_variants) > 1:
             return random.choice(reply_variants)
@@ -171,7 +173,9 @@ class LearningAgent:
             knowledge[key].append(reply)
 
             if other_key in knowledge and reply in knowledge[other_key]:
-                knowledge[other_key].remove(reply)
+
+                # remove ALL occurrences of reply
+                knowledge[other_key] = list(filter(lambda a: a != reply, knowledge[other_key]))
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
@@ -204,7 +208,9 @@ class LearningAgent:
         if replies:
             for wrong_reply in black_list:
                 if wrong_reply in replies:
-                    replies.remove(wrong_reply)
+
+                    # remove ALL occurrences of wrong reply from replies
+                    replies = list(filter(lambda a: a != wrong_reply, replies))
             return random.choices(replies)
         elif black_list:
             return black_list

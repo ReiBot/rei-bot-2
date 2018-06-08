@@ -189,7 +189,7 @@ class LearningAgent:
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
                         or not self.knowledge_base['replies'] and self.knowledge_base['black list']:
-                        black_list += self.knowledge_base['black list']
+                    black_list += self.knowledge_base['black list']
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 

@@ -69,10 +69,11 @@ class NounsFindingAgent:
         reply_variants = list()
 
         # getting reply variants by checking regex
-        for noun in self.stemmed_nouns:
-            if re.search(noun, input_text, re.I):
-                # adding sentences with this noun
-                reply_variants += self.noun_sentences[noun]
+        for stemmed_noun in self.stemmed_nouns.keys():
+            if re.search(stemmed_noun, input_text, re.I):
+                for noun in self.stemmed_nouns[stemmed_noun]:
+                    # adding sentences with this noun
+                    reply_variants += self.noun_sentences[noun]
 
         if not reply_variants:
             if no_empty_reply:
@@ -81,12 +82,13 @@ class NounsFindingAgent:
                 return None
 
         # omitting variants from black list
-        for reply in black_list:
-            # preventing from deleting everything
-            if reply in reply_variants and (not no_empty_reply or len(reply_variants) > 1):
+        if black_list:
+            for reply in black_list:
+                # preventing from deleting everything
+                if reply in reply_variants and (not no_empty_reply or len(reply_variants) > 1):
 
-                # remove ALL occurrences of reply from black list from reply variants
-                reply_variants = list(filter(lambda a: a != reply, reply_variants))
+                    # remove ALL occurrences of reply from black list from reply variants
+                    reply_variants = list(filter(lambda a: a != reply, reply_variants))
 
         if len(reply_variants) > 1:
             return random.choice(reply_variants)

@@ -73,7 +73,7 @@ class NounsFindingAgent:
         # getting reply variants by checking regex in each word
         for word in words:
             for stemmed_noun in self.stemmed_nouns.keys():
-                if re.search(stemmed_noun, text_processing.stem(word), re.I):
+                if re.search(f'^{stemmed_noun}$', text_processing.stem(word), re.I):
                     for noun in self.stemmed_nouns[stemmed_noun]:
                         # adding sentences with this noun
                         reply_variants += self.noun_sentences[noun]

@@ -3,15 +3,14 @@ Module for testing
 """
 
 from typing import List, Dict
-import texting_ai
 import json_manager
 
 
-def test_predefined_reply(agent: texting_ai.PredefinedReplyAgent,
-                          test_file_name: str,
-                          test_output_file_name: str = 'test_output.json') -> None:
+def test_reply_agent(agent: 'agent with "get_reply" function',
+                     test_file_name: str,
+                     test_output_file_name: str = 'test_output.json') -> None:
     """
-    Test agent that uses predefined replies
+    Test agent that can give replies on text messages
     :param agent: agent to test
     :param test_file_name: file with test data
     :param test_output_file_name: file for writing testing output in
@@ -29,6 +28,6 @@ def test_predefined_reply(agent: texting_ai.PredefinedReplyAgent,
 
     for message in messages:
         test_output.append({"message": message,
-                            "reply": agent.get_predefined_reply(message)})
+                            "reply": agent.get_reply(message)})
 
     json_manager.write(test_output, test_output_file_name)

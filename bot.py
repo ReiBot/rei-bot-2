@@ -25,8 +25,8 @@ BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 # server that will listen for new messages
 APP = web.Application()
 
-AGENT = texting_ai.PredefinedReplyAgent(os.path.join('data', 'language', 'sentences.json'),
-                                        os.path.join('data', 'language', 'nouns.json'))
+REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
+                                           os.path.join('data', 'language', 'nouns.json'))
 
 
 def set_proxy() -> None:
@@ -77,7 +77,7 @@ def start_reply(message: telebot.types.Message) -> None:
     :param message: received message by bot from user
     :return: None
     """
-    BOT.send_message(message.chat.id, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
+    BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
 
 
 @BOT.message_handler(commands=['ask'])
@@ -89,12 +89,12 @@ def ask_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     # TODO for /ask implement replying on previous message
-    BOT.reply_to(message, AGENT.get_predefined_reply(message.text, no_empty_reply=True))
+    BOT.reply_to(message, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
 
 
 # Handle text messages
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
-def text_reply(message: telebot.types.Message):
+def text_reply(message: telebot.types.Message) -> None:
     """
     Handler for private and group text messages from users
     :param message: received message by bot from user
@@ -104,14 +104,14 @@ def text_reply(message: telebot.types.Message):
 
     # if private message
     if message.chat.type == 'private':
-        BOT.send_message(message.chat.id, AGENT.get_predefined_reply(text, no_empty_reply=True))
+        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
     # if reply on bot's message
     elif check_reply(BOT.get_me().id, message):
-        BOT.reply_to(message, AGENT.get_predefined_reply(text, no_empty_reply=True))
+        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
     # TODO add forward handling
     # if group message
     else:
-        reply = AGENT.get_predefined_reply(text)
+        reply = REPLY_AGENT.get_reply(text)
         if reply:
             BOT.reply_to(message, reply)
 

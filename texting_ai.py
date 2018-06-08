@@ -66,23 +66,13 @@ class NounsFindingAgent:
         :return: text with the reply
         """
 
-        sentences = sent_tokenize(input_text)
-
         reply_variants = list()
 
-        # getting reply variants by taking and stemming all nouns from text
-        # and searching for predefined replies containing these nouns
-        for sentence in sentences:
-            # getting nouns
-            nouns = text_processing.get_nouns(sentence)
-            for noun in nouns:
-                # stemming nouns
-                stemmed_noun = text_processing.stem(noun)
-                # searching for known nouns
-                if stemmed_noun in self.stemmed_nouns:
-                    for noun in self.stemmed_nouns[stemmed_noun]:
-                        # adding sentences with this noun
-                        reply_variants += self.noun_sentences[noun]
+        # getting reply variants by checking regex
+        for noun in self.stemmed_nouns:
+            if re.search(noun, input_text, re.I):
+                # adding sentences with this noun
+                reply_variants += self.noun_sentences[noun]
 
         if not reply_variants:
             if no_empty_reply:

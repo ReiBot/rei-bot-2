@@ -54,6 +54,9 @@ class NounsFindingAgent:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
 
+        # for omitting repeating replies
+        self.used_replies = set()
+
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
                   black_list: List[str] = None) -> Optional[str]:
         """
@@ -85,21 +88,28 @@ class NounsFindingAgent:
             else:
                 return None
 
-        # omitting variants from black list
-        if black_list:
-            for reply in black_list:
-                # preventing from deleting everything
-                if reply in reply_variants and (not no_empty_reply or len(reply_variants) > 1):
+        for reply in reply_variants:
+            # omitting variants from black list
+            if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
+                reply_variants.remove(reply)
 
-                    # remove ALL occurrences of reply from black list from reply variants
-                    reply_variants = list(filter(lambda a: a != reply, reply_variants))
+        if reply_variants:
+            # choosing reply which was not used before
+            while True:
+                if no_empty_reply and len(reply_variants) == 1:
+                    result_reply = reply_variants[0]
+                    self.used_replies.add(result_reply)
+                    break
 
-        if len(reply_variants) > 1:
-            return random.choice(reply_variants)
-        elif reply_variants:
-            return reply_variants[0]
+                result_reply = random.choice(reply_variants)
+                reply_variants.remove(result_reply)
 
-        return None
+                if result_reply not in self.used_replies:
+                    break
+        else:
+            result_reply = None
+
+        return result_reply
 
 
 class LearningAgent:

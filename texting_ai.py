@@ -19,6 +19,14 @@ class NounsFindingAgent:
     depending on nouns in the input
     """
 
+    # TODO remove that to bot module as "typing"
+    #  min number of other messages between messages sent by bot
+    MESSAGES_PERIOD = 10
+
+    # TODO: implement agent for this
+    # seconds to sleep before sending a message
+    SLEEP_TIME = 2
+
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # load data from input json
         phrases_data = json_manager.read(phrases_json_path)
@@ -61,7 +69,6 @@ class NounsFindingAgent:
 
         # for decreasing frequency of messages sent by bot
         # TODO remove that to bot module as "typing"
-        self.MESSAGES_PERIOD = 10  # min number of other messages between messages sent by bot
         self.message_counter = self.MESSAGES_PERIOD
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
@@ -75,6 +82,9 @@ class NounsFindingAgent:
         :param black_list: replies to be omitted from possible variants
         :return: text with the reply
         """
+
+        if not input_text:
+            return None
 
         self.message_counter += 1
 
@@ -127,7 +137,7 @@ class NounsFindingAgent:
             # for permitting bot from being banned by telegram
             # because of too frequent messages sent
             # TODO: implement agent for this
-            time.sleep(2)
+            time.sleep(self.SLEEP_TIME)
             self.last_used_reply = result_reply
             self.message_counter = 0
 

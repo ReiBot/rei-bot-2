@@ -3,6 +3,7 @@ This module contains agents that gives text output on given input text
 """
 
 import random
+import time
 from typing import List, Dict, Optional
 import os.path
 import re
@@ -59,7 +60,7 @@ class NounsFindingAgent:
         self.last_used_reply = set()
 
         # for decreasing frequency of messages sent by bot
-        # TODO implement agent for that
+        # TODO remove that to bot module as "typing"
         self.MESSAGES_PERIOD = 10  # min number of other messages between messages sent by bot
         self.message_counter = self.MESSAGES_PERIOD
 
@@ -77,7 +78,7 @@ class NounsFindingAgent:
 
         self.message_counter += 1
 
-        if not no_empty_reply and self.message_counter < self.MESSAGES_PERIOD:
+        if not no_empty_reply and self.message_counter <= self.MESSAGES_PERIOD:
             return None
 
         words = word_tokenize(input_text)
@@ -123,6 +124,10 @@ class NounsFindingAgent:
             result_reply = None
 
         if result_reply:
+            # for permitting bot from being banned by telegram
+            # because of too frequent messages sent
+            # TODO: implement agent for this
+            time.sleep(2)
             self.last_used_reply = result_reply
             self.message_counter = 0
 

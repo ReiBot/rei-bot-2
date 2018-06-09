@@ -37,4 +37,4 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
 
 REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
                                            os.path.join('data', 'language', 'nouns.json'))
-test_reply_agent(REPLY_AGENT, 'test0.txt')
+test_reply_agent(REPLY_AGENT, os.path.join('data', 'tests', 'test0.txt'))

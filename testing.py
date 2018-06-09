@@ -2,8 +2,10 @@
 Module for testing
 """
 
+import os.path
 from typing import List, Dict
 import json_manager
+import texting_ai
 
 
 def test_reply_agent(agent: 'agent with "get_reply" function',
@@ -31,3 +33,8 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
                             "reply": agent.get_reply(message)})
 
     json_manager.write(test_output, test_output_file_name)
+
+
+REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
+                                           os.path.join('data', 'language', 'nouns.json'))
+test_reply_agent(REPLY_AGENT, 'test0.txt')

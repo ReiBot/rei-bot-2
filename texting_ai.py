@@ -55,7 +55,13 @@ class NounsFindingAgent:
             self.stemmed_nouns[stemmed].append(noun)
 
         # for omitting repeating replies
-        self.used_replies = set()
+        # TODO implement agent for that
+        self.last_used_reply = set()
+
+        # for decreasing frequency of messages sent by bot
+        # TODO implement agent for that
+        self.MESSAGES_PERIOD = 10  # min number of other messages between messages sent by bot
+        self.message_counter = self.MESSAGES_PERIOD
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
                   black_list: List[str] = None) -> Optional[str]:
@@ -68,6 +74,13 @@ class NounsFindingAgent:
         :param black_list: replies to be omitted from possible variants
         :return: text with the reply
         """
+
+        self.message_counter += 1
+
+        if not no_empty_reply and self.message_counter < self.MESSAGES_PERIOD:
+            return None
+
+        self.message_counter = 0
 
         words = word_tokenize(input_text)
 
@@ -88,26 +101,31 @@ class NounsFindingAgent:
             else:
                 return None
 
-        for reply in reply_variants:
-            # omitting variants from black list
-            if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
-                reply_variants.remove(reply)
+        if black_list:
+            for reply in reply_variants:
+                # omitting variants from black list
+                if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
+                    reply_variants.remove(reply)
 
         if reply_variants:
-            # choosing reply which was not used before
-            while True:
-                if no_empty_reply and len(reply_variants) == 1:
-                    result_reply = reply_variants[0]
-                    self.used_replies.add(result_reply)
-                    break
+            if no_empty_reply and len(reply_variants) == 1:
+                result_reply = reply_variants[0]
+            else:
+                # choosing reply which was not used before
+                while True:
+                    result_reply = random.choice(reply_variants)
+                    reply_variants.remove(result_reply)
 
-                result_reply = random.choice(reply_variants)
-                reply_variants.remove(result_reply)
-
-                if result_reply not in self.used_replies:
-                    break
+                    if result_reply != self.last_used_reply:
+                        break
+                    elif not reply_variants:
+                        result_reply = None
+                        break
         else:
             result_reply = None
+
+        if result_reply:
+            self.last_used_reply = result_reply
 
         return result_reply
 

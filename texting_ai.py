@@ -116,6 +116,7 @@ class NounsFindingAgent:
                 if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
                     reply_variants.remove(reply)
 
+        result_reply = None
         if reply_variants:
             if no_empty_reply and len(reply_variants) == 1:
                 result_reply = reply_variants[0]

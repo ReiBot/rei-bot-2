@@ -80,8 +80,6 @@ class NounsFindingAgent:
         if not no_empty_reply and self.message_counter < self.MESSAGES_PERIOD:
             return None
 
-        self.message_counter = 0
-
         words = word_tokenize(input_text)
 
         stemmed_words = list(map(text_processing.stem, words))
@@ -126,6 +124,7 @@ class NounsFindingAgent:
 
         if result_reply:
             self.last_used_reply = result_reply
+            self.message_counter = 0
 
         return result_reply
 

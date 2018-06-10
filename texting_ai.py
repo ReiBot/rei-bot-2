@@ -131,8 +131,6 @@ class NounsFindingAgent:
                     elif not reply_variants:
                         result_reply = None
                         break
-        else:
-            result_reply = None
 
         if result_reply:
             # for permitting bot from being banned by telegram

@@ -3,6 +3,7 @@ This module contains agents that gives text output on given input text
 """
 
 import random
+import time
 from typing import List, Dict, Optional
 import os.path
 import re
@@ -18,6 +19,14 @@ class NounsFindingAgent:
     depending on nouns in the input
     """
 
+    # TODO remove that to bot module as "typing"
+    #  min number of other messages between messages sent by bot
+    MESSAGES_PERIOD = 10
+
+    # TODO: implement agent for this
+    # seconds to sleep before sending a message
+    SLEEP_TIME = 2
+
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # load data from input json
         phrases_data = json_manager.read(phrases_json_path)
@@ -31,14 +40,15 @@ class NounsFindingAgent:
 
         # iterating through phrases data and storing nouns with sentences
         for sentence, nouns in phrases_data.items():
-            if not nouns:
-                self.noun_sentences[None].append(sentence)
-            else:
+            if nouns:
                 for noun in nouns:
                     # if the noun occurs the first time set an empty array
                     if noun not in self.noun_sentences:
                         self.noun_sentences[noun] = list()
                     self.noun_sentences[noun].append(sentence)
+            else:
+                # add sentence without nouns
+                self.noun_sentences[None].append(sentence)
 
         # load data from input json
         nouns_data = json_manager.read(nouns_json_path)
@@ -54,8 +64,16 @@ class NounsFindingAgent:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
 
+        # for omitting repeating replies
+        # TODO implement agent for that
+        self.last_used_reply = None
+
+        # for decreasing frequency of messages sent by bot
+        # TODO remove that to bot module as "typing"
+        self.message_counter = self.MESSAGES_PERIOD
+
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
-                  black_list: List[str] = None) -> Optional[str]:
+                  black_list: Optional[List[str]] = None) -> Optional[str]:
         """
         Returns text output by
         search known nouns in the input text
@@ -66,23 +84,26 @@ class NounsFindingAgent:
         :return: text with the reply
         """
 
-        sentences = sent_tokenize(input_text)
+        if not input_text:
+            return None
+
+        self.message_counter += 1
+
+        if not no_empty_reply and self.message_counter <= self.MESSAGES_PERIOD:
+            return None
+
+        words = word_tokenize(input_text)
+
+        stemmed_words = list(map(text_processing.stem, words))
 
         reply_variants = list()
 
-        # getting reply variants by taking and stemming all nouns from text
-        # and searching for predefined replies containing these nouns
-        for sentence in sentences:
-            # getting nouns
-            nouns = text_processing.get_nouns(sentence)
-            for noun in nouns:
-                # stemming nouns
-                stemmed_noun = text_processing.stem(noun)
-                # searching for known nouns
-                if stemmed_noun in self.stemmed_nouns:
-                    for noun in self.stemmed_nouns[stemmed_noun]:
-                        # adding sentences with this noun
-                        reply_variants += self.noun_sentences[noun]
+        # getting reply variants by checking each word if it is known
+        for stemmed_word in stemmed_words:
+            if stemmed_word in self.stemmed_nouns:
+                for noun in self.stemmed_nouns[stemmed_word]:
+                    # adding sentences with this noun
+                    reply_variants += self.noun_sentences[noun]
 
         if not reply_variants:
             if no_empty_reply:
@@ -91,19 +112,36 @@ class NounsFindingAgent:
                 return None
 
         # omitting variants from black list
-        for reply in black_list:
-            # preventing from deleting everything
-            if reply in reply_variants and (not no_empty_reply or len(reply_variants) > 1):
+        if black_list:
+            for reply in reply_variants:
+                if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
+                    reply_variants.remove(reply)
 
-                # remove ALL occurrences of reply from black list from reply variants
-                reply_variants = list(filter(lambda a: a != reply, reply_variants))
+        # choosing reply which was not used before by checking last_used_reply attribute
+        result_reply = None
+        if reply_variants:
+            if no_empty_reply and len(reply_variants) == 1:
+                result_reply = reply_variants[0]
+            else:
+                while True:
+                    result_reply = random.choice(reply_variants)
+                    reply_variants.remove(result_reply)
 
-        if len(reply_variants) > 1:
-            return random.choice(reply_variants)
-        elif reply_variants:
-            return reply_variants[0]
+                    if result_reply != self.last_used_reply:
+                        break
+                    elif not reply_variants:
+                        result_reply = None
+                        break
 
-        return None
+        if result_reply:
+            # for permitting bot from being banned by telegram
+            # because of too frequent messages sent
+            # TODO: implement agent for this
+            time.sleep(self.SLEEP_TIME)
+            self.last_used_reply = result_reply
+            self.message_counter = 0
+
+        return result_reply
 
 
 class LearningAgent:
@@ -199,7 +237,7 @@ class LearningAgent:
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
                         or not self.knowledge_base['replies'] and self.knowledge_base['black list']:
-                        black_list += self.knowledge_base['black list']
+                    black_list += self.knowledge_base['black list']
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 

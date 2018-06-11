@@ -40,14 +40,15 @@ class NounsFindingAgent:
 
         # iterating through phrases data and storing nouns with sentences
         for sentence, nouns in phrases_data.items():
-            if not nouns:
-                self.noun_sentences[None].append(sentence)
-            else:
+            if nouns:
                 for noun in nouns:
                     # if the noun occurs the first time set an empty array
                     if noun not in self.noun_sentences:
                         self.noun_sentences[noun] = list()
                     self.noun_sentences[noun].append(sentence)
+            else:
+                # add sentence without nouns
+                self.noun_sentences[None].append(sentence)
 
         # load data from input json
         nouns_data = json_manager.read(nouns_json_path)
@@ -65,14 +66,14 @@ class NounsFindingAgent:
 
         # for omitting repeating replies
         # TODO implement agent for that
-        self.last_used_reply = set()
+        self.last_used_reply = None
 
         # for decreasing frequency of messages sent by bot
         # TODO remove that to bot module as "typing"
         self.message_counter = self.MESSAGES_PERIOD
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
-                  black_list: List[str] = None) -> Optional[str]:
+                  black_list: Optional[List[str]] = None) -> Optional[str]:
         """
         Returns text output by
         search known nouns in the input text
@@ -110,18 +111,18 @@ class NounsFindingAgent:
             else:
                 return None
 
+        # omitting variants from black list
         if black_list:
             for reply in reply_variants:
-                # omitting variants from black list
                 if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
                     reply_variants.remove(reply)
 
+        # choosing reply which was not used before by checking last_used_reply attribute
         result_reply = None
         if reply_variants:
             if no_empty_reply and len(reply_variants) == 1:
                 result_reply = reply_variants[0]
             else:
-                # choosing reply which was not used before
                 while True:
                     result_reply = random.choice(reply_variants)
                     reply_variants.remove(result_reply)

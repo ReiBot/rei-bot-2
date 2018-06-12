@@ -276,7 +276,7 @@ class AgentPipeline:
     @staticmethod
     def _agent_controller(**kwargs) -> Dict:
         """
-        Calls agent with arguments extracted from kwargs
+        Calls agent with arguments extracted from kwargs using agent callers
         and returns updated kwargs with new values that gives agent
         :param kwargs: arguments for agent
         :return: updated kwargs
@@ -294,7 +294,7 @@ class AgentPipeline:
                 result_type = type(result)
                 if result_type in type_key:
                     # updating list by adding new elements
-                    if isinstance(result_type, list):
+                    if isinstance(result, list):
                         kwargs[type_key[result_type]].extend(result)
                     else:
                         kwargs[type_key[result_type]] = result

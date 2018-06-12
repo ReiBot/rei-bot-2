@@ -217,7 +217,7 @@ class LearningAgent:
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
-    def search_reply(self, input_text: str) -> [str, List[str], None]:
+    def get_reply(self, input_text: str) -> [str, List[str], None]:
         """
         Searches for patterns in knowledge base
         that match input text and returns the results of search
@@ -253,3 +253,50 @@ class LearningAgent:
         elif black_list:
             return black_list
         return None
+
+
+class AgentPipeline:
+    agent_adapters = {
+        NounsFindingAgent:
+            lambda **kwargs:
+                kwargs.agent.get_reply(kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list),
+        LearningAgent:
+            lambda **kwargs:
+                kwargs.agent.get_reply(kwargs.input_text)
+    }
+
+    def _agent_controller(self, **kwargs):
+        type_key = {
+            str: 'reply',
+            List[str]: 'black_list',
+            bool: 'no_empty_reply'
+        }
+
+        if not kwargs.reply:
+            result = self.agent_adapters[type(kwargs.agent)](kwargs)
+
+            if result:
+                result_type = type(result)
+                if result_type in type_key:
+                    if result_type == list:
+                        kwargs[type_key[result_type]] += result
+                    else:
+                        kwargs[type_key[result_type]] = result
+
+        return kwargs
+
+    def __init__(self, *args):
+        self.agents = args
+
+    def get_reply(self, input_text, no_empty_reply):
+        kwargs = {
+            'reply': None,
+            'input_text': input_text,
+            'no_empty_reply': no_empty_reply
+        }
+
+        for agent in self.agents:
+            kwargs['agent'] = agent
+            kwargs = self._agent_controller(kwargs)
+
+        return kwargs.reply

@@ -38,4 +38,11 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
 AGENT_DATA_PATH = os.path.join('data', 'language')
 REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join(AGENT_DATA_PATH, 'sentences.json'),
                                            os.path.join(AGENT_DATA_PATH, 'nouns.json'))
-test_reply_agent(REPLY_AGENT, os.path.join('data', 'tests', 'test0.txt'))
+
+PIPE_LINE = texting_ai.AgentPipeline(REPLY_AGENT)
+
+for test_n in [0, 1]:
+    for agent in [REPLY_AGENT, PIPE_LINE]:
+        test_reply_agent(REPLY_AGENT, os.path.join('data', 'tests', 'test' + str(test_n) + '.txt'),
+                         test_output_file_name='test_output_' + str(agent.__class__) + '_n_' + str(test_n)
+                                               + '.txt')

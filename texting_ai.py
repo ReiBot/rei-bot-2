@@ -4,7 +4,7 @@ This module contains agents that gives text output on given input text
 
 import random
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Type
 import os.path
 import re
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -255,17 +255,22 @@ class LearningAgent:
         return None
 
 
-class AgentPipeline:
-    agent_adapters = {
-        NounsFindingAgent:
-            lambda **kwargs:
-                kwargs.agent.get_reply(kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list),
-        LearningAgent:
-            lambda **kwargs:
-                kwargs.agent.get_reply(kwargs.input_text)
-    }
+# for adapting kwargs to arguments used by agents
+AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
+AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs:\
+    (kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list)
+AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
 
-    def _agent_controller(self, **kwargs):
+# for calling agents' methods that process input message
+AGENT_CALLERS: Dict[Type, 'function'] = dict()
+AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs:\
+    kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
+AGENT_CALLERS[LearningAgent] = lambda **kwargs: kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
+
+
+class AgentPipeline:
+    @staticmethod
+    def _agent_controller(**kwargs):
         type_key = {
             str: 'reply',
             List[str]: 'black_list',
@@ -273,7 +278,7 @@ class AgentPipeline:
         }
 
         if not kwargs.reply:
-            result = self.agent_adapters[type(kwargs.agent)](kwargs)
+            result = AGENT_CALLERS[type(kwargs.agent)](kwargs)
 
             if result:
                 result_type = type(result)

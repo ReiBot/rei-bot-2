@@ -316,6 +316,8 @@ class AgentPipeline:
         is mandatory and False otherwise
         :return: text reply on input text
         """
+
+        # dictionary for saving updated value in kwargs by its type
         kwargs = {
             'reply': None,
             'input_text': input_text,
@@ -325,6 +327,7 @@ class AgentPipeline:
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
             kwargs['agent'] = agent
+            # update kwargs by assignment new value got from agent
             kwargs = self._agent_controller(kwargs)
 
         return kwargs.reply

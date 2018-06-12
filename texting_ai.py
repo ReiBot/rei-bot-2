@@ -294,8 +294,8 @@ class AgentPipeline:
                 result_type = type(result)
                 if result_type in type_key:
                     # updating list by adding new elements
-                    if result_type == list:
-                        kwargs[type_key[result_type]] += result
+                    if isinstance(result_type, list):
+                        kwargs[type_key[result_type]].extend(result)
                     else:
                         kwargs[type_key[result_type]] = result
 
@@ -322,6 +322,7 @@ class AgentPipeline:
             'no_empty_reply': no_empty_reply
         }
 
+        # iterating through agents and passing kwargs through each one
         for agent in self.agents:
             kwargs['agent'] = agent
             kwargs = self._agent_controller(kwargs)

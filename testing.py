@@ -42,8 +42,9 @@ LEARNING_AGENT = texting_ai.LearningAgent(os.path.join('data', 'learning_model.j
 
 PIPE_LINE = texting_ai.AgentPipeline(LEARNING_AGENT, REPLY_AGENT)
 
-for test_n in [1]:
+TEST_NUMBERS = [1, 0, 2]
+
+for test_n in TEST_NUMBERS:
     for agent in [REPLY_AGENT, LEARNING_AGENT, PIPE_LINE]:
         test_reply_agent(REPLY_AGENT, os.path.join('data', 'tests', 'test' + str(test_n) + '.txt'),
-                         test_output_file_name='test_output_' + str(agent.__class__) + '_n_' + str(test_n)
-                                               + '.txt')
+                         test_output_file_name=f'test_output_{str(agent.__class__)}_n_{str(test_n)}.txt')

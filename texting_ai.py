@@ -19,11 +19,11 @@ class NounsFindingAgent:
     depending on nouns in the input
     """
 
-    # TODO remove that to bot module as "typing"
+    # TODO: implement agent for this
     #  min number of other messages between messages sent by bot
     MESSAGES_PERIOD = 10
 
-    # TODO: implement agent for this
+    # TODO: remove that to bot module as "typing"
     # seconds to sleep before sending a message
     SLEEP_TIME = 2
 
@@ -265,12 +265,22 @@ AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
 AGENT_CALLERS: Dict[Type, 'function'] = dict()
 AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs:\
     kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
-AGENT_CALLERS[LearningAgent] = lambda **kwargs: kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
+AGENT_CALLERS[LearningAgent] = lambda **kwargs:\
+    kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
 
 
 class AgentPipeline:
+    """
+    Pipeline that iteratively uses agents in order to get reply on input text
+    """
     @staticmethod
-    def _agent_controller(**kwargs):
+    def _agent_controller(**kwargs) -> Dict:
+        """
+        Calls agent with arguments extracted from kwargs
+        and returns updated kwargs with new values that gives agent
+        :param kwargs: arguments for agent
+        :return: updated kwargs
+        """
         type_key = {
             str: 'reply',
             List[str]: 'black_list',
@@ -283,6 +293,7 @@ class AgentPipeline:
             if result:
                 result_type = type(result)
                 if result_type in type_key:
+                    # updating list by adding new elements
                     if result_type == list:
                         kwargs[type_key[result_type]] += result
                     else:
@@ -291,9 +302,20 @@ class AgentPipeline:
         return kwargs
 
     def __init__(self, *args):
+        """
+        :param args: agents that will be in pipeline
+        """
         self.agents = args
 
-    def get_reply(self, input_text, no_empty_reply):
+    def get_reply(self, input_text: str, no_empty_reply: bool) -> Optional[str]:
+        """
+        Pass arguments through each of agents and
+        returns reply on input text
+        :param input_text: input text
+        :param no_empty_reply: flag that is True when non-empty reply
+        is mandatory and False otherwise
+        :return: text reply on input text
+        """
         kwargs = {
             'reply': None,
             'input_text': input_text,

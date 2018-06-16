@@ -281,6 +281,8 @@ class AgentPipeline:
         :param kwargs: arguments for agent
         :return: updated kwargs
         """
+
+        # for placing values of given types with corresponding keys in kwargs
         type_key = {
             str: 'reply',
             List[str]: 'black_list',
@@ -317,7 +319,7 @@ class AgentPipeline:
         :return: text reply on input text
         """
 
-        # dictionary for saving updated value in kwargs by its type
+        # initial values for kwargs
         kwargs = {
             'reply': None,
             'input_text': input_text,

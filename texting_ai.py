@@ -4,7 +4,7 @@ This module contains agents that gives text output on given input text
 
 import random
 import time
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Type
 import os.path
 import re
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -19,11 +19,11 @@ class NounsFindingAgent:
     depending on nouns in the input
     """
 
-    # TODO remove that to bot module as "typing"
+    # TODO: implement agent for this
     #  min number of other messages between messages sent by bot
     MESSAGES_PERIOD = 10
 
-    # TODO: implement agent for this
+    # TODO: remove that to bot module as "typing"
     # seconds to sleep before sending a message
     SLEEP_TIME = 2
 
@@ -105,6 +105,7 @@ class NounsFindingAgent:
                     # adding sentences with this noun
                     reply_variants += self.noun_sentences[noun]
 
+        # TODO create another agent for this
         if not reply_variants:
             if no_empty_reply:
                 reply_variants = self.noun_sentences[None].copy()
@@ -217,10 +218,10 @@ class LearningAgent:
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
-    def search_reply(self, input_text: str) -> [str, List[str], None]:
+    def get_reply(self, input_text: str) -> [str, List[str], None]:
         """
-        Searches for patterns in knowledge base
-        that match input text and returns the results of search
+        Gets reply by searching for patterns in knowledge base
+        that match input text
         :param input_text: input text to search in
         :return: reply if it is found, black list of replies or None if nothing is found
         """
@@ -253,3 +254,93 @@ class LearningAgent:
         elif black_list:
             return black_list
         return None
+
+
+# for adapting kwargs to arguments used by agents
+AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
+AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
+    (kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list)
+AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
+
+# for calling agents' methods that process input message
+AGENT_CALLERS: Dict[Type, 'function'] = dict()
+AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
+    kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
+AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
+    kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
+
+
+class AgentPipeline:
+    """
+    Pipeline that iteratively uses agents in order to get reply on input text
+    """
+    # for placing the reply got from the agent of given type with corresponding key in updated_kwargs
+    _type_key = {
+        str: 'reply',
+        List[str]: 'black_list',
+        bool: 'no_empty_reply'
+    }
+
+    def _agent_controller(self, **kwargs) -> Dict:
+        """
+        Calls agent with arguments extracted from kwargs using agent callers
+        and returns updated kwargs with new values that gives agent
+        :param kwargs: arguments for agent caller
+            'reply': str
+                Reply got from agent,
+            'black_list': List[str]
+                Prohibited replies,
+            'no_empty_reply': bool
+                flag for omitting empty reply,
+            'agent': [LearningAgent, NounsFindingAgent]
+                Agent that processes input and returns reply
+        :return: updated kwargs
+        """
+
+        updated_kwargs = kwargs.copy()
+
+        if not kwargs.reply:
+            # value to be updated in kwargs
+            result = AGENT_CALLERS[type(kwargs.agent)](kwargs)
+
+            if result:
+                result_type = type(result)
+                if result_type in self._type_key:
+                    # updating list by adding new elements
+                    if isinstance(result, list):
+                        updated_kwargs[self._type_key[result_type]].extend(result)
+                    else:
+                        updated_kwargs[self._type_key[result_type]] = result
+
+        return updated_kwargs
+
+    def __init__(self, *args: [LearningAgent, NounsFindingAgent]):
+        """
+        :param args: agents that will be in pipeline
+        """
+        self.agents = args
+
+    def get_reply(self, input_text: str, no_empty_reply: bool) -> Optional[str]:
+        """
+        Passes arguments through each of agents and
+        returns reply on input text
+        :param input_text: input text
+        :param no_empty_reply: flag that is True when non-empty reply
+        is mandatory and False otherwise
+        :return: text reply on input text
+        """
+
+        # initial values for kwargs
+        init_kwargs = {
+            'reply': None,
+            'input_text': input_text,
+            'no_empty_reply': no_empty_reply
+        }
+
+        # iterating through agents and passing kwargs through each one
+        for agent in self.agents:
+            init_kwargs['agent'] = agent
+            # update kwargs by assignment new value got from agent
+            kwargs = self._agent_controller(init_kwargs)
+
+        return kwargs.reply

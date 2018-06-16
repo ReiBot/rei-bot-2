@@ -85,7 +85,8 @@ def start_reply(message: telebot.types.Message) -> None:
     else:
         is_reply = True
 
-    reply_message(is_reply, message, texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True))
+    reply_message(is_reply, message,
+                  texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True))
 
 
 # Handle text messages

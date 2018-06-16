@@ -257,7 +257,7 @@ class LearningAgent:
 
 # for adapting kwargs to arguments used by agents
 AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
-AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs:\
+AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
     (kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list)
 AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
 
@@ -273,7 +273,7 @@ class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    # for placing value got from agent of given type with corresponding key in updated_kwargs
+    # for placing the value got from the agent of given type with corresponding key in updated_kwargs
     _type_key = {
         str: 'reply',
         List[str]: 'black_list',
@@ -284,7 +284,15 @@ class AgentPipeline:
         """
         Calls agent with arguments extracted from kwargs using agent callers
         and returns updated kwargs with new values that gives agent
-        :param kwargs: arguments for agent caller 'reply', 'black_list', 'no_empty_reply', 'agent'
+        :param kwargs: arguments for agent caller
+            'reply': str
+                Reply got from agent,
+            'black_list': List[str]
+                Prohibited replies,
+            'no_empty_reply': bool
+                flag for omitting empty reply,
+            'agent': [LearningAgent, NounsFindingAgent]
+                Agent that processes input and returns reply
         :return: updated kwargs
         """
 
@@ -305,7 +313,7 @@ class AgentPipeline:
 
         return updated_kwargs
 
-    def __init__(self, *args):
+    def __init__(self, *args: [LearningAgent, NounsFindingAgent]):
         """
         :param args: agents that will be in pipeline
         """
@@ -313,7 +321,7 @@ class AgentPipeline:
 
     def get_reply(self, input_text: str, no_empty_reply: bool) -> Optional[str]:
         """
-        Pass arguments through each of agents and
+        Passes arguments through each of agents and
         returns reply on input text
         :param input_text: input text
         :param no_empty_reply: flag that is True when non-empty reply

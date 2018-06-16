@@ -105,6 +105,7 @@ class NounsFindingAgent:
                     # adding sentences with this noun
                     reply_variants += self.noun_sentences[noun]
 
+        # TODO create another agent for this
         if not reply_variants:
             if no_empty_reply:
                 reply_variants = self.noun_sentences[None].copy()
@@ -273,7 +274,7 @@ class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    # for placing the value got from the agent of given type with corresponding key in updated_kwargs
+    # for placing the reply got from the agent of given type with corresponding key in updated_kwargs
     _type_key = {
         str: 'reply',
         List[str]: 'black_list',

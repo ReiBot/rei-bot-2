@@ -4,6 +4,7 @@ Telegram bot module
 
 import ssl
 import os.path
+import time
 from configparser import ConfigParser
 from aiohttp import web
 
@@ -25,8 +26,8 @@ BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 # server that will listen for new messages
 APP = web.Application()
 
-REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
-                                           os.path.join('data', 'language', 'nouns.json'))
+# time for bot to be "typing" in seconds
+TYPING_TIME: int = 2
 
 
 def set_proxy() -> None:
@@ -69,27 +70,22 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-@BOT.message_handler(commands=['start'])
+@BOT.message_handler(commands=['start, ask'])
 def start_reply(message: telebot.types.Message) -> None:
     """
-    Handler for /start command
-    Sends message back to user that sent /start command
-    :param message: received message by bot from user
-    :return: None
-    """
-    BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
-
-
-@BOT.message_handler(commands=['ask'])
-def ask_reply(message: telebot.types.Message) -> None:
-    """
-    Handler for /ask command
-    Replies to user that sent /ask command
+    Handler for /start and /ask commands
+    Sends message back to user that sent /start or /ask command
     :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
-    BOT.reply_to(message, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
+    # if private message
+    if message.chat.type == 'private':
+        is_reply = False
+    else:
+        is_reply = True
+
+    reply_message(is_reply, message, texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True))
 
 
 # Handle text messages
@@ -101,19 +97,20 @@ def text_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     text = message.text
+    is_reply = True
+    no_empty_reply = True
 
     # if private message
     if message.chat.type == 'private':
-        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
-    # if reply on bot's message
-    elif check_reply(BOT.get_me().id, message):
-        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
+        is_reply = False
     # TODO add forward handling
-    # if group message
-    else:
-        reply = REPLY_AGENT.get_reply(text)
-        if reply:
-            BOT.reply_to(message, reply)
+    # if group message and not a reply on bot's message
+    elif not check_reply(BOT.get_me().id, message):
+        no_empty_reply = False
+
+    reply = texting_ai.PIPELINE.get_reply(text, no_empty_reply=no_empty_reply)
+    if reply:
+        reply_message(is_reply, message, reply)
 
 
 def check_reply(_id: int, message: telebot.types.Message) -> bool:
@@ -124,6 +121,23 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     :return: True if message is a reply False otherwise
     """
     return message.reply_to_message and message.reply_to_message.from_user.id == _id
+
+
+def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) -> None:
+    """
+    Sends reply on message
+    :param message: input message
+    :param reply: text reply on message
+    :param is_reply: True if reply_to() method should be used or False if send_message()
+    :return: None
+    """
+    BOT.send_chat_action(message.chat.id, 'typing')
+    time.sleep(TYPING_TIME)
+
+    if is_reply:
+        BOT.reply_to(message, reply)
+    else:
+        BOT.send_message(message.chat.id, reply)
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

@@ -344,3 +344,9 @@ class AgentPipeline:
             kwargs = self._agent_controller(init_kwargs)
 
         return kwargs.reply
+
+
+LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
+NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
+                                        os.path.join('data', 'language', 'nouns.json'))
+PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT)

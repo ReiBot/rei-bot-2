@@ -219,8 +219,8 @@ class LearningAgent:
 
     def get_reply(self, input_text: str) -> [str, List[str], None]:
         """
-        Searches for patterns in knowledge base
-        that match input text and returns the results of search
+        Gets reply by searching for patterns in knowledge base
+        that match input text
         :param input_text: input text to search in
         :return: reply if it is found, black list of replies or None if nothing is found
         """
@@ -263,9 +263,9 @@ AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
 
 # for calling agents' methods that process input message
 AGENT_CALLERS: Dict[Type, 'function'] = dict()
-AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs:\
+AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
     kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
-AGENT_CALLERS[LearningAgent] = lambda **kwargs:\
+AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
     kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
 
 
@@ -273,35 +273,37 @@ class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    @staticmethod
-    def _agent_controller(**kwargs) -> Dict:
+    # for placing value got from agent of given type with corresponding key in updated_kwargs
+    _type_key = {
+        str: 'reply',
+        List[str]: 'black_list',
+        bool: 'no_empty_reply'
+    }
+
+    def _agent_controller(self, **kwargs) -> Dict:
         """
         Calls agent with arguments extracted from kwargs using agent callers
         and returns updated kwargs with new values that gives agent
-        :param kwargs: arguments for agent
+        :param kwargs: arguments for agent caller 'reply', 'black_list', 'no_empty_reply', 'agent'
         :return: updated kwargs
         """
 
-        # for placing values of given types with corresponding keys in kwargs
-        type_key = {
-            str: 'reply',
-            List[str]: 'black_list',
-            bool: 'no_empty_reply'
-        }
+        updated_kwargs = kwargs.copy()
 
         if not kwargs.reply:
+            # value to be updated in kwargs
             result = AGENT_CALLERS[type(kwargs.agent)](kwargs)
 
             if result:
                 result_type = type(result)
-                if result_type in type_key:
+                if result_type in self._type_key:
                     # updating list by adding new elements
                     if isinstance(result, list):
-                        kwargs[type_key[result_type]].extend(result)
+                        updated_kwargs[self._type_key[result_type]].extend(result)
                     else:
-                        kwargs[type_key[result_type]] = result
+                        updated_kwargs[self._type_key[result_type]] = result
 
-        return kwargs
+        return updated_kwargs
 
     def __init__(self, *args):
         """
@@ -320,7 +322,7 @@ class AgentPipeline:
         """
 
         # initial values for kwargs
-        kwargs = {
+        init_kwargs = {
             'reply': None,
             'input_text': input_text,
             'no_empty_reply': no_empty_reply
@@ -328,8 +330,8 @@ class AgentPipeline:
 
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
-            kwargs['agent'] = agent
+            init_kwargs['agent'] = agent
             # update kwargs by assignment new value got from agent
-            kwargs = self._agent_controller(kwargs)
+            kwargs = self._agent_controller(init_kwargs)
 
         return kwargs.reply

@@ -30,7 +30,7 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
 
     for message in messages:
         test_output.append({"message": message,
-                            "reply": agent.get_reply(message)})
+                            "reply": agent.get_reply(message, no_empty_reply=True)})
 
     json_manager.write(test_output, test_output_file_name)
 

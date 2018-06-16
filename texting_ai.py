@@ -264,15 +264,15 @@ class LearningAgent:
 # for adapting kwargs to arguments used by agents
 AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
 AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
-    (kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list)
-AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
+    (kwargs['input_text'], kwargs['no_empty_reply'], kwargs['black_list'])
+AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: (kwargs['input_text'],)
 
 # for calling agents' methods that process input message
 AGENT_CALLERS: Dict[Type, 'function'] = dict()
 AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
-    kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
+    kwargs['agent'].get_reply(*AGENT_ADAPTERS[NounsFindingAgent](**kwargs))
 AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
-    kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
+    kwargs['agent'].get_reply(*AGENT_ADAPTERS[LearningAgent](**kwargs))
 
 
 class AgentPipeline:
@@ -304,9 +304,9 @@ class AgentPipeline:
 
         updated_kwargs = kwargs.copy()
 
-        if not kwargs.reply:
+        if not kwargs['reply']:
             # value to be updated in kwargs
-            result = AGENT_CALLERS[type(kwargs.agent)](kwargs)
+            result = AGENT_CALLERS[type(kwargs['agent'])](**kwargs)
 
             if result:
                 result_type = type(result)
@@ -325,7 +325,7 @@ class AgentPipeline:
         """
         self.agents = args
 
-    def get_reply(self, input_text: str, no_empty_reply: bool) -> Optional[str]:
+    def get_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
         """
         Passes arguments through each of agents and
         returns reply on input text
@@ -339,16 +339,19 @@ class AgentPipeline:
         init_kwargs = {
             'reply': None,
             'input_text': input_text,
-            'no_empty_reply': no_empty_reply
+            'no_empty_reply': no_empty_reply,
+            'black_list': None
         }
+
+        kwargs = init_kwargs
 
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
-            init_kwargs['agent'] = agent
+            kwargs['agent'] = agent
             # update kwargs by assignment new value got from agent
-            kwargs = self._agent_controller(init_kwargs)
+            kwargs = self._agent_controller(**kwargs)
 
-        return kwargs.reply
+        return kwargs['reply']
 
 
 LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))

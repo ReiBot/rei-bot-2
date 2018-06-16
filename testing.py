@@ -30,21 +30,14 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
 
     for message in messages:
         test_output.append({"message": message,
-                            "reply": agent.get_reply(message, no_empty_reply=True)})
+                            "reply": agent.get_reply(message)})
 
     json_manager.write(test_output, test_output_file_name)
 
 
-AGENT_DATA_PATH = os.path.join('data', 'language')
-REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join(AGENT_DATA_PATH, 'sentences.json'),
-                                           os.path.join(AGENT_DATA_PATH, 'nouns.json'))
-LEARNING_AGENT = texting_ai.LearningAgent(os.path.join('data', 'learning_model.json'))
-
-PIPE_LINE = texting_ai.AgentPipeline(LEARNING_AGENT, REPLY_AGENT)
-
 TEST_NUMBERS = [1, 0, 2]
 
 for test_n in TEST_NUMBERS:
-    for agent in [REPLY_AGENT, LEARNING_AGENT, PIPE_LINE]:
-        test_reply_agent(REPLY_AGENT, os.path.join('data', 'tests', f'test{str(test_n)}.txt'),
+    for agent in [texting_ai.NOUNS_FINDING_AGENT, texting_ai.LEARNING_AGENT, texting_ai.PIPELINE]:
+        test_reply_agent(agent, os.path.join('data', 'tests', f'test{str(test_n)}.txt'),
                          test_output_file_name=f'test_output_{str(agent.__class__)}_n_{str(test_n)}.txt')

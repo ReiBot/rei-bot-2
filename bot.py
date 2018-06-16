@@ -131,6 +131,9 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     :param is_reply: True if reply_to() method should be used or False if send_message()
     :return: None
     """
+    if not reply:
+        return
+
     BOT.send_chat_action(message.chat.id, 'typing')
     time.sleep(TYPING_TIME)
 

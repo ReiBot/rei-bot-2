@@ -3,7 +3,6 @@ This module contains agents that gives text output on given input text
 """
 
 import random
-import time
 from typing import List, Dict, Optional, Type
 import os.path
 import re
@@ -11,6 +10,9 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
 import text_processing
 import json_manager
+import logger
+
+LOGGER = logger.get_logger(__file__)
 
 
 class NounsFindingAgent:
@@ -22,10 +24,6 @@ class NounsFindingAgent:
     # TODO: implement agent for this
     #  min number of other messages between messages sent by bot
     MESSAGES_PERIOD = 10
-
-    # TODO: remove that to bot module as "typing"
-    # seconds to sleep before sending a message
-    SLEEP_TIME = 2
 
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # load data from input json
@@ -101,6 +99,7 @@ class NounsFindingAgent:
         # getting reply variants by checking each word if it is known
         for stemmed_word in stemmed_words:
             if stemmed_word in self.stemmed_nouns:
+                LOGGER.info(f'"{stemmed_word}" is found in "{input_text}" text')
                 for noun in self.stemmed_nouns[stemmed_word]:
                     # adding sentences with this noun
                     reply_variants += self.noun_sentences[noun]
@@ -138,7 +137,6 @@ class NounsFindingAgent:
             # for permitting bot from being banned by telegram
             # because of too frequent messages sent
             # TODO: implement agent for this
-            time.sleep(self.SLEEP_TIME)
             self.last_used_reply = result_reply
             self.message_counter = 0
 
@@ -203,6 +201,11 @@ class LearningAgent:
         for sentence in sentences:
             pattern = self.sentence_to_pattern(sentence)
 
+            if right:
+                LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
+            else:
+                LOGGER.info(f'"{pattern}" is learned with prohibited reply "{reply}"')
+
             if pattern not in self.knowledge_base:
                 self.knowledge_base[pattern] = dict()
             knowledge = self.knowledge_base[pattern]
@@ -234,6 +237,8 @@ class LearningAgent:
         # for each known pattern check if the input matches
         for pattern in patterns:
             if re.search(pattern, input_text, re.I):
+                LOGGER.info(f'"{pattern}" pattern is found in "{input_text}" text')
+
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \

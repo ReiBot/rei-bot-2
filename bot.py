@@ -80,7 +80,8 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-@BOT.message_handler(commands=['start, ask'])
+@BOT.message_handler(commands=['start'])
+@BOT.message_handler(commands=['ask'])
 def start_reply(message: telebot.types.Message) -> None:
     """
     Handler for /start and /ask commands
@@ -184,7 +185,12 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
     is executed when a user presses a button on the message inline keyboard"""
 
     grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
-    message: telebot.types.Message = grading_message.message
+    message: telebot.types.Message = call.message
+
+    if message.message_id != grading_message.message.message_id:
+        BOT.edit_message_reply_markup(chat_id=message.chat.id,
+                                      message_id=message.message_id, reply_markup=None)
+        return
 
     if call.data in {DOWN_VOTE, UP_VOTE}:
         user_id = call.from_user.id

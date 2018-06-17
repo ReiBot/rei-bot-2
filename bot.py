@@ -187,6 +187,8 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
     grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
     message: telebot.types.Message = call.message
 
+    # if the message is not the one that is currently grading
+    # then remove keyboard
     if not grading_message or message.message_id != grading_message.message.message_id:
         BOT.edit_message_reply_markup(chat_id=message.chat.id,
                                       message_id=message.message_id, reply_markup=None)

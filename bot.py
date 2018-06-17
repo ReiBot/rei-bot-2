@@ -2,17 +2,18 @@
 Telegram bot module
 """
 
-import ssl
-import os.path
 import time
-from configparser import ConfigParser
-from aiohttp import web
-import emoji
 
+import emoji
+import os.path
+import ssl
 import telebot
-import texting_ai
+from aiohttp import web
+from configparser import ConfigParser
+
 import logger
 import messages
+import texting_ai
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -129,7 +130,7 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     return message.reply_to_message and message.reply_to_message.from_user.id == _id
 
 
-def make_voting_keyboard(likes: int >= 0, dislikes: int >= 0) -> telebot.types.InlineKeyboardMarkup:
+def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeyboardMarkup:
     """
     Makes inline keyboard for grading message by likes and dislikes
     :param likes: number of likes to display

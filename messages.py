@@ -20,10 +20,9 @@ class GradableMessage:
     _likes: int = 0
     _dislikes: int = 0
 
-    _liked: Set[int] = set()
-    _disliked: Set[int] = set()
-
     def __init__(self, message: Message, reply_message: str):
+        self._liked: Set[int] = set()
+        self._disliked: Set[int] = set()
         self.message = message
         self.input_message = message.text
         self.reply_message = reply_message
@@ -35,6 +34,8 @@ class GradableMessage:
         else:
             self._likes += 1
             self._liked.add(user_id)
+            if user_id in self._disliked:
+                self._update_dislikes(user_id)
 
     def _update_dislikes(self, user_id):
         if user_id in self._disliked:
@@ -43,6 +44,8 @@ class GradableMessage:
         else:
             self._dislikes += 1
             self._disliked.add(user_id)
+            if user_id in self._liked:
+                self._update_likes(user_id)
 
     def update_grade(self) -> bool:
         """

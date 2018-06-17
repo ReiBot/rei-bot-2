@@ -188,7 +188,7 @@ def callback_inline(call):
     message: telebot.types.Message = grading_message.message
 
     if call.data in ["up vote", "down vote"]:
-        user_id = call.data.from_user.id
+        user_id = call.from_user.id
         if call.data == "up vote":
             grading_message.up_vote(user_id)
         elif call.data == "down vote":

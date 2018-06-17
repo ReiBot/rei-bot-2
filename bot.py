@@ -29,6 +29,8 @@ APP = web.Application()
 # time for bot to be "typing" in seconds
 TYPING_TIME: int = 2
 
+LOGGER = logger.get_logger(__file__)
+
 
 def set_proxy() -> None:
     """
@@ -138,10 +140,20 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     BOT.send_chat_action(message.chat.id, 'typing')
     time.sleep(TYPING_TIME)
 
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    callback_button = telebot.types.InlineKeyboardButton(text="Нажми меня", callback_data="test")
+    keyboard.add(callback_button)
+
     if is_reply:
         BOT.reply_to(message, reply)
     else:
         BOT.send_message(message.chat.id, reply)
+
+
+@BOT.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    if call.data == "test":
+        LOGGER.debug("button is pressed")
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

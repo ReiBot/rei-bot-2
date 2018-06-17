@@ -7,10 +7,12 @@ import os.path
 import time
 from configparser import ConfigParser
 from aiohttp import web
+import emoji
 
 import telebot
 import texting_ai
 import logger
+import messages
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -21,6 +23,8 @@ URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])
 
 telebot.logger = logger.get_logger(__file__)
 
+LOGGER = telebot.logger
+
 BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 
 # server that will listen for new messages
@@ -28,8 +32,6 @@ APP = web.Application()
 
 # time for bot to be "typing" in seconds
 TYPING_TIME: int = 2
-
-LOGGER = logger.get_logger(__file__)
 
 
 def set_proxy() -> None:
@@ -126,6 +128,18 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     return message.reply_to_message and message.reply_to_message.from_user.id == _id
 
 
+def make_voting_keyboard(likes: int >= 0, dislikes: int >= 0) -> telebot.types.InlineKeyboardMarkup:
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    callback_button = telebot.types.InlineKeyboardButton(text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
+                                                         callback_data="down vote")
+    keyboard.add(callback_button)
+    callback_button = telebot.types.InlineKeyboardButton(text=f"{emoji.emojize(':thumbs_up:')} {likes}",
+                                                         callback_data="up vote")
+    keyboard.add(callback_button)
+
+    return keyboard
+
+
 def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) -> None:
     """
     Sends reply on message
@@ -135,25 +149,38 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     :return: None
     """
     if not reply:
+        LOGGER.error("empty reply in reply_message()")
         return
+
+    if messages.CURRENT_GRADING_MESSAGE:
+        old_message: telebot.types.Message = messages.CURRENT_GRADING_MESSAGE.message
+        BOT.edit_message_reply_markup(chat_id=old_message.chat.id, message_id=old_message.message_id, reply_markup=None)
 
     BOT.send_chat_action(message.chat.id, 'typing')
     time.sleep(TYPING_TIME)
 
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    callback_button = telebot.types.InlineKeyboardButton(text="Нажми меня", callback_data="test")
-    keyboard.add(callback_button)
+    keyboard = make_voting_keyboard(0, 0)
 
     if is_reply:
-        BOT.reply_to(message, reply, reply_markup=keyboard)
+        new_message = BOT.reply_to(message, reply, reply_markup=keyboard)
     else:
-        BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
+        new_message = BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
+
+    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, reply)
 
 
 @BOT.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
-    if call.data == "test":
-        LOGGER.debug("button is pressed")
+    grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
+    message: telebot.types.Message = grading_message.message
+    if call.data in ["up vote", "down vote"]:
+        if call.data == "up vote":
+            grading_message.up_vote()
+        elif call.data == "down vote":
+            grading_message.down_vote()
+        keyboard = make_voting_keyboard(grading_message.get_likes(), grading_message.get_dislikes())
+        BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=messages.message_id,
+                                      reply_markup=keyboard)
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

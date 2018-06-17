@@ -145,9 +145,9 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     keyboard.add(callback_button)
 
     if is_reply:
-        BOT.reply_to(message, reply)
+        BOT.reply_to(message, reply, reply_markup=keyboard)
     else:
-        BOT.send_message(message.chat.id, reply)
+        BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
 
 
 @BOT.callback_query_handler(func=lambda call: True)

@@ -1,7 +1,8 @@
 """Module for operating on telegram messages"""
 
-from typing import Set
 from telebot.types import Message
+from typing import Set
+
 import logger
 
 LOGGER = logger.get_logger(__file__)
@@ -16,8 +17,8 @@ class GradableMessage:
     # where -1 is for dislikes > likes 0 is for equality and 1 is for likes > dislikes
     _grade: [-1, 0, 1] = 0
 
-    _likes: int >= 0 = 0
-    _dislikes: int >= 0 = 0
+    _likes: int = 0
+    _dislikes: int = 0
 
     _liked: Set[int] = set()
     _disliked: Set[int] = set()

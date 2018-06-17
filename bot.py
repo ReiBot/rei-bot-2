@@ -33,6 +33,9 @@ APP = web.Application()
 # time for bot to be "typing" in seconds
 TYPING_TIME: int = 2
 
+PRIVATE_MESSAGE = 'private'
+TYPING = 'typing'
+
 
 def set_proxy() -> None:
     """
@@ -83,11 +86,9 @@ def start_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     # TODO for /ask implement replying on previous message
+
     # if private message
-    if message.chat.type == 'private':
-        is_reply = False
-    else:
-        is_reply = True
+    is_reply = False if message.chat.type == PRIVATE_MESSAGE else True
 
     reply_message(message,
                   texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True), is_reply)
@@ -106,7 +107,7 @@ def text_reply(message: telebot.types.Message) -> None:
     no_empty_reply = True
 
     # if private message
-    if message.chat.type == 'private':
+    if message.chat.type == PRIVATE_MESSAGE:
         is_reply = False
     # TODO add forward handling
     # if group message and not a reply on bot's message
@@ -129,12 +130,20 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
 
 
 def make_voting_keyboard(likes: int >= 0, dislikes: int >= 0) -> telebot.types.InlineKeyboardMarkup:
+    """
+    Makes inline keyboard for grading message by likes and dislikes
+    :param likes: number of likes to display
+    :param dislikes: number of dislikes to display
+    :return: keyboard that can be attached to message
+    """
     keyboard = telebot.types.InlineKeyboardMarkup()
-    callback_button = telebot.types.InlineKeyboardButton(text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
-                                                         callback_data="down vote")
+    callback_button = telebot.types.InlineKeyboardButton(
+        text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
+        callback_data="down vote")
     keyboard.add(callback_button)
-    callback_button = telebot.types.InlineKeyboardButton(text=f"{emoji.emojize(':thumbs_up:')} {likes}",
-                                                         callback_data="up vote")
+    callback_button = telebot.types.InlineKeyboardButton(
+        text=f"{emoji.emojize(':thumbs_up:')} {likes}",
+        callback_data="up vote")
     keyboard.add(callback_button)
 
     return keyboard
@@ -154,9 +163,10 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
 
     if messages.CURRENT_GRADING_MESSAGE:
         old_message: telebot.types.Message = messages.CURRENT_GRADING_MESSAGE.message
-        BOT.edit_message_reply_markup(chat_id=old_message.chat.id, message_id=old_message.message_id, reply_markup=None)
+        BOT.edit_message_reply_markup(chat_id=old_message.chat.id,
+                                      message_id=old_message.message_id, reply_markup=None)
 
-    BOT.send_chat_action(message.chat.id, 'typing')
+    BOT.send_chat_action(message.chat.id, TYPING)
     time.sleep(TYPING_TIME)
 
     keyboard = make_voting_keyboard(0, 0)
@@ -171,15 +181,19 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
 
 @BOT.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
+    """Callback that is called when a user presses a button on the message inline keyboard"""
+
     grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
     message: telebot.types.Message = grading_message.message
+
     if call.data in ["up vote", "down vote"]:
+        user_id = call.data.from_user.id
         if call.data == "up vote":
-            grading_message.up_vote()
+            grading_message.up_vote(user_id)
         elif call.data == "down vote":
-            grading_message.down_vote()
+            grading_message.down_vote(user_id)
         keyboard = make_voting_keyboard(grading_message.get_likes(), grading_message.get_dislikes())
-        BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=messages.message_id,
+        BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 
 

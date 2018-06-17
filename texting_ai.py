@@ -264,22 +264,24 @@ class LearningAgent:
 # for adapting kwargs to arguments used by agents
 AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
 AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
-    (kwargs['input_text'], kwargs['no_empty_reply'], kwargs['black_list'])
-AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: (kwargs['input_text'],)
+    (kwargs.get('input_text', None), kwargs.get('no_empty_reply', None),
+     kwargs.get('black_list', None))
+AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
 
 # for calling agents' methods that process input message
 AGENT_CALLERS: Dict[Type, 'function'] = dict()
 AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
-    kwargs['agent'].get_reply(*AGENT_ADAPTERS[NounsFindingAgent](**kwargs))
+    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[NounsFindingAgent](**kwargs))
 AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
-    kwargs['agent'].get_reply(*AGENT_ADAPTERS[LearningAgent](**kwargs))
+    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[LearningAgent](**kwargs))
 
 
 class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    # for placing the reply got from the agent of given type with corresponding key in updated_kwargs
+    # for placing the reply got from the agent of given type
+    # with corresponding key in updated_kwargs
     _type_key = {
         str: 'reply',
         List[str]: 'black_list',
@@ -304,16 +306,16 @@ class AgentPipeline:
 
         updated_kwargs = kwargs.copy()
 
-        if not kwargs['reply']:
+        if not kwargs.get('reply', None):
             # value to be updated in kwargs
-            result = AGENT_CALLERS[type(kwargs['agent'])](**kwargs)
+            result = AGENT_CALLERS[type(kwargs.get('agent', None))](**kwargs)
 
             if result:
                 result_type = type(result)
                 if result_type in self._type_key:
                     # updating list by adding new elements
                     if isinstance(result, list):
-                        updated_kwargs[self._type_key[result_type]].extend(result)
+                        updated_kwargs.get(self._type_key[result_type], None).extend(result)
                     else:
                         updated_kwargs[self._type_key[result_type]] = result
 
@@ -351,10 +353,11 @@ class AgentPipeline:
             # update kwargs by assignment new value got from agent
             kwargs = self._agent_controller(**kwargs)
 
-        return kwargs['reply']
+        return kwargs.get('reply', None)
 
 
+AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
 LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
-NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
-                                        os.path.join('data', 'language', 'nouns.json'))
+NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
+                                        os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
 PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT)

@@ -44,6 +44,10 @@ class GradableMessage:
             self._disliked.add(user_id)
 
     def update_grade(self) -> bool:
+        """
+        Updates grade of the message
+        :return: True if the grade was changed else False
+        """
         old_grade = self._grade
         if self._likes > self._dislikes:
             self._grade = 1
@@ -52,24 +56,43 @@ class GradableMessage:
         else:
             self._grade = 0
 
-        if self._grade != old_grade:
-            return True
-        else:
-            return False
+        return True if self._grade != old_grade else False
 
-    def up_vote(self, user_id):
+    def up_vote(self, user_id) -> None:
+        """
+        Handles up-voting action made by a user
+        :param user_id: id of a voted user
+        :return: None
+        """
         self._update_likes(user_id)
 
-    def down_vote(self, user_id):
+    def down_vote(self, user_id) -> None:
+        """
+        Handles down-voting action made by a user
+        :param user_id: id of a voted user
+        :return: None
+        """
         self._update_dislikes(user_id)
 
-    def get_likes(self):
+    def get_likes(self) -> int:
+        """
+        Gets number of likes
+        :return: number of likes
+        """
         return self._likes
 
-    def get_dislikes(self):
+    def get_dislikes(self) -> int:
+        """
+        Gets number of dislikes
+        :return: number of dislikes
+        """
         return self._dislikes
 
-    def get_grade(self):
+    def get_grade(self) -> int:
+        """
+        Gets the grade of the message
+        :return: grade
+        """
         return self._grade
 
 

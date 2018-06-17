@@ -138,14 +138,13 @@ def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeybo
     :return: keyboard that can be attached to message
     """
     keyboard = telebot.types.InlineKeyboardMarkup()
-    callback_button = telebot.types.InlineKeyboardButton(
+    callback_button_dislike = telebot.types.InlineKeyboardButton(
         text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
         callback_data="down vote")
-    keyboard.add(callback_button)
-    callback_button = telebot.types.InlineKeyboardButton(
+    callback_button_like = telebot.types.InlineKeyboardButton(
         text=f"{emoji.emojize(':thumbs_up:')} {likes}",
         callback_data="up vote")
-    keyboard.add(callback_button)
+    keyboard.row(callback_button_dislike, callback_button_like)
 
     return keyboard
 

@@ -36,6 +36,8 @@ TYPING_TIME: int = 2
 
 PRIVATE_MESSAGE = 'private'
 TYPING = 'typing'
+DOWN_VOTE = 'down vote'
+UP_VOTE = 'up vote'
 
 
 def set_proxy() -> None:
@@ -88,11 +90,8 @@ def start_reply(message: telebot.types.Message) -> None:
     """
     # TODO for /ask implement replying on previous message
 
-    # if private message
-    is_reply = False if message.chat.type == PRIVATE_MESSAGE else True
-
-    reply_message(message,
-                  texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True), is_reply)
+    reply_message(message, texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True),
+                  False if message.chat.type == PRIVATE_MESSAGE else True)
 
 
 # Handle text messages
@@ -140,10 +139,10 @@ def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeybo
     keyboard = telebot.types.InlineKeyboardMarkup()
     callback_button_dislike = telebot.types.InlineKeyboardButton(
         text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
-        callback_data="down vote")
+        callback_data=DOWN_VOTE)
     callback_button_like = telebot.types.InlineKeyboardButton(
         text=f"{emoji.emojize(':thumbs_up:')} {likes}",
-        callback_data="up vote")
+        callback_data=UP_VOTE)
     keyboard.row(callback_button_dislike, callback_button_like)
 
     return keyboard
@@ -180,17 +179,18 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
 
 
 @BOT.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
-    """Callback that is called when a user presses a button on the message inline keyboard"""
+def callback_inline(call: telebot.types.CallbackQuery) -> None:
+    """Callback that
+    is executed when a user presses a button on the message inline keyboard"""
 
     grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
     message: telebot.types.Message = grading_message.message
 
-    if call.data in ["up vote", "down vote"]:
+    if call.data in {DOWN_VOTE, UP_VOTE}:
         user_id = call.from_user.id
-        if call.data == "up vote":
+        if call.data == UP_VOTE:
             grading_message.up_vote(user_id)
-        elif call.data == "down vote":
+        elif call.data == DOWN_VOTE:
             grading_message.down_vote(user_id)
         keyboard = make_voting_keyboard(grading_message.get_likes(), grading_message.get_dislikes())
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,

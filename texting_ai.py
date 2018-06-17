@@ -2,15 +2,16 @@
 This module contains agents that gives text output on given input text
 """
 
-import random
-from typing import List, Dict, Optional, Type
 import os.path
+import random
 import re
-from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
-import text_processing
+from nltk.tokenize import sent_tokenize, word_tokenize
+from typing import List, Dict, Optional, Type
+
 import json_manager
 import logger
+import text_processing
 
 LOGGER = logger.get_logger(__file__)
 
@@ -315,7 +316,7 @@ class AgentPipeline:
                 if result_type in self._type_key:
                     # updating list by adding new elements
                     if isinstance(result, list):
-                        updated_kwargs.get(self._type_key[result_type], None).extend(result)
+                        updated_kwargs[self._type_key[result_type]].extend(result)
                     else:
                         updated_kwargs[self._type_key[result_type]] = result
 
@@ -334,7 +335,7 @@ class AgentPipeline:
         :param input_text: input text
         :param no_empty_reply: flag that is True when non-empty reply
         is mandatory and False otherwise
-        :return: text reply on input text
+        :return: text reply on input text or None if there are no reply on given input
         """
 
         # initial values for kwargs

@@ -4,6 +4,7 @@ Module for testing
 
 import os.path
 from typing import List, Dict
+
 import json_manager
 import texting_ai
 
@@ -29,8 +30,12 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
     test_output: List[Dict[str, str]] = list()
 
     for message in messages:
-        test_output.append({"message": message,
-                            "reply": agent.get_reply(message)})
+        if isinstance(agent, texting_ai.AgentPipeline):
+            test_output.append({"message": message,
+                                "reply": agent.get_reply(message)})
+        else:
+            test_output.append({"message": message,
+                                "reply": agent.get_replies(message)})
 
     json_manager.write(test_output, test_output_file_name)
 

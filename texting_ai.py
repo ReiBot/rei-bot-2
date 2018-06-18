@@ -23,10 +23,6 @@ class NounsFindingAgent:
     depending on nouns in the input
     """
 
-    # TODO: implement agent for this
-    #  min number of other messages between messages sent by bot
-    MESSAGES_PERIOD = 10
-
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # load data from input json
         phrases_data = json_manager.read(phrases_json_path)
@@ -64,33 +60,19 @@ class NounsFindingAgent:
                 self.stemmed_nouns[stemmed] = list()
             self.stemmed_nouns[stemmed].append(noun)
 
-        # for omitting repeating replies
-        # TODO implement agent for that
-        self.last_used_reply = None
-
-        # for decreasing frequency of messages sent by bot
-        # TODO remove that to bot module as "typing"
-        self.message_counter = self.MESSAGES_PERIOD
-
-    def get_reply(self, input_text: str, no_empty_reply: bool = False,
-                  black_list: Optional[List[str]] = None) -> Optional[str]:
+    def get_replies(self, input_text: str,
+                    black_list: Optional[List[str]] = None) -> Tuple[List[str]]:
         """
-        Returns text output by
+        Returns possible text outputs by
         search known nouns in the input text
         and giving predefined phrases as a reply
         :param input_text: text containing natural language
-        :param no_empty_reply: flag for omitting empty reply
         :param black_list: replies to be omitted from possible variants
-        :return: text with the reply
+        :return: possible reply variants
         """
 
         if not input_text:
-            return None
-
-        self.message_counter += 1
-
-        if not no_empty_reply and self.message_counter <= self.MESSAGES_PERIOD:
-            return None
+            return list(),
 
         words = word_tokenize(input_text)
 
@@ -106,42 +88,13 @@ class NounsFindingAgent:
                     # adding sentences with this noun
                     reply_variants += self.noun_sentences[noun]
 
-        # TODO create another agent for this
-        if not reply_variants:
-            if no_empty_reply:
-                reply_variants = self.noun_sentences[None].copy()
-            else:
-                return None
-
         # omitting variants from black list
-        for reply in reply_variants:
-            if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
-                reply_variants.remove(reply)
+        if black_list:
+            for reply in black_list:
+                if reply in reply_variants:
+                    reply_variants = list(filter(lambda x: x != reply, reply_variants))
 
-        # choosing reply which was not used before by checking last_used_reply attribute
-        result_reply = None
-        if reply_variants:
-            if no_empty_reply and len(reply_variants) == 1:
-                result_reply = reply_variants[0]
-            else:
-                while True:
-                    result_reply = random.choice(reply_variants)
-                    reply_variants.remove(result_reply)
-
-                    if result_reply != self.last_used_reply:
-                        break
-                    elif not reply_variants:
-                        result_reply = None
-                        break
-
-        if result_reply:
-            # for permitting bot from being banned by telegram
-            # because of too frequent messages sent
-            # TODO: implement agent for this
-            self.last_used_reply = result_reply
-            self.message_counter = 0
-
-        return result_reply
+        return reply_variants,
 
 
 class LearningAgent:
@@ -257,12 +210,12 @@ class LearningAgent:
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
-    def get_reply(self, input_text: str) -> [str, List[str], None]:
+    def get_replies(self, input_text: str) -> Tuple[List[str], List[str]]:
         """
-        Gets reply by searching for patterns in knowledge base
+        Gets allowed and prohibited replies by searching for patterns in knowledge base
         that match input text
         :param input_text: input text to search in
-        :return: reply if it is found, black list of replies or None if nothing is found
+        :return: allowed and prohibited replies
         """
 
         patterns = self.knowledge_base.keys()
@@ -285,46 +238,19 @@ class LearningAgent:
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 
-        # if there are possible replies the remove the ones
-        # that are in the black list and return random reply
-        if replies:
-            for wrong_reply in black_list:
-                if wrong_reply in replies:
+        # removing replies from black list
+        for wrong_reply in black_list:
+            if wrong_reply in replies:
+                # remove ALL occurrences of wrong reply from replies
+                replies = list(filter(lambda a: a != wrong_reply, replies))
 
-                    # remove ALL occurrences of wrong reply from replies
-                    replies = list(filter(lambda a: a != wrong_reply, replies))
-            return random.choice(replies)
-        elif black_list:
-            return black_list
-        return None
-
-
-# for adapting kwargs to arguments used by agents
-AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
-AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
-    (kwargs.get('input_text', None), kwargs.get('no_empty_reply', None),
-     kwargs.get('black_list', None))
-AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
-
-# for calling agents' methods that process input message
-AGENT_CALLERS: Dict[Type, 'function'] = dict()
-AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
-    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[NounsFindingAgent](**kwargs))
-AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
-    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[LearningAgent](**kwargs))
+        return replies, black_list
 
 
 class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    # for placing the reply got from the agent of given type
-    # with corresponding key in updated_kwargs
-    _type_key = {
-        str: 'reply',
-        list: 'black_list',
-        bool: 'no_empty_reply'
-    }
 
     def _agent_controller(self, **kwargs) -> Dict:
         """
@@ -344,21 +270,13 @@ class AgentPipeline:
 
         updated_kwargs = kwargs.copy()
 
-        if not kwargs.get('reply', None):
-            # value to be updated in kwargs
-            result = AGENT_CALLERS[type(kwargs.get('agent', None))](**kwargs)
-            if result:
-                result_type = type(result)
-                if result_type in self._type_key:
-                    # updating list by adding new elements
-                    if isinstance(result, list):
-                        kwargs_list = updated_kwargs[self._type_key[result_type]]
-                        if not kwargs_list:
-                            kwargs_list = list()
-                        kwargs_list.extend(result)
-                        updated_kwargs[self._type_key[result_type]] = kwargs_list
-                    else:
-                        updated_kwargs[self._type_key[result_type]] = result
+        agent_type = type(kwargs.get('agent', None))
+        # value to be updated in kwargs
+        result = self._kwargs_converter[agent_type](*(self._agent_callers[agent_type](**kwargs)),
+                                                    kwargs)
+
+        for key, value in result.items():
+            updated_kwargs[key] = value
 
         return updated_kwargs
 
@@ -367,6 +285,36 @@ class AgentPipeline:
         :param args: agents that will be in pipeline
         """
         self.agents = args
+
+        # for adapting kwargs to arguments used by agents
+        self._agent_adapters: Dict[Type, 'function'] = dict()
+        self._agent_adapters[NounsFindingAgent] = lambda **kwargs: \
+            (kwargs.get('input_text', None),
+             kwargs.get('black_list', None))
+        self._agent_adapters[LearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
+        self._agent_adapters[RandomReplyAgent] = lambda **kwargs: \
+            (kwargs.get('reply_variants', None),
+             kwargs.get('black_list', None),
+             kwargs.get('no_empty_reply', False))
+
+        # for calling agents' methods that process input message
+        self._agent_callers: Dict[Type, 'function'] = dict()
+        self._agent_callers[NounsFindingAgent] = lambda **kwargs: \
+            kwargs.get('agent', None).get_replies(*self._agent_adapters[NounsFindingAgent](**kwargs))
+        self._agent_callers[LearningAgent] = lambda **kwargs: \
+            kwargs.get('agent', None).get_replies(*self._agent_adapters[LearningAgent](**kwargs))
+        self._agent_callers[RandomReplyAgent] = lambda **kwargs: \
+            kwargs.get('agent', None).get_reply(*self._agent_adapters[RandomReplyAgent](**kwargs))
+
+        # for converting agent's output to kwargs parameter(s)
+        self._kwargs_converter: Dict[Type, 'function'] = dict()
+        self._kwargs_converter[NounsFindingAgent] = lambda replies, kwargs:\
+            {'reply_variants': kwargs['reply_variants'] + replies}
+        self._kwargs_converter[LearningAgent] = lambda replies, black_list, kwargs:\
+            {'reply_variants': kwargs['reply_variants'] + replies,
+             'black_list': kwargs['black_list'] + black_list}
+        self._kwargs_converter[RandomReplyAgent] = lambda reply, kwargs:\
+            {'reply': reply}
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
         """
@@ -381,9 +329,10 @@ class AgentPipeline:
         # initial values for kwargs
         init_kwargs = {
             'reply': None,
+            'reply_variants': list(),
             'input_text': input_text,
             'no_empty_reply': no_empty_reply,
-            'black_list': None
+            'black_list': list()
         }
 
         kwargs = init_kwargs
@@ -397,8 +346,53 @@ class AgentPipeline:
         return kwargs.get('reply', None)
 
 
+class RandomReplyAgent:
+    """
+    Agent that chooses random replies from given ones
+    """
+    def __init__(self, path_to_phrases: str):
+        if not (path_to_phrases or os.path.isfile(path_to_phrases)):
+            LOGGER.error('wrong phrases path for RandomReplyAgent')
+            return
+
+        self.all_phrases = json_manager.read(path_to_phrases).keys()
+        self.max_weight = len(self.all_phrases)
+        self.phrases_weights: Dict[str, int] = dict()
+        for phrase in self.all_phrases:
+            self.phrases_weights[phrase] = self.max_weight
+
+    def get_reply(self, replies: List[str], black_list: List[str], no_empty_reply: bool) -> Tuple[Optional[str]]:
+        """
+        Gets random reply or nothing if there are no possible replies
+        :param replies: possible replies
+        :param black_list: prohibited replies
+        :param no_empty_reply: flag to indicate that there must be a non-empty reply
+        as a returned value
+        :return: one chosen reply or None
+        """
+        possible_replies = self.all_phrases if not replies and no_empty_reply else replies
+        if not possible_replies:
+            return None,
+
+        if black_list:
+            possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
+
+        if possible_replies:
+            reply = random.choices(possible_replies, weights=list(map(lambda phrase:
+                                                                      self.phrases_weights[phrase],
+                                                                      possible_replies)))[0]
+            self.phrases_weights[reply] -= 1
+            if self.phrases_weights[reply] == 0:
+                self.phrases_weights[reply] = self.max_weight
+        else:
+            reply = None
+
+        return reply,
+
+
 AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
 LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
+RANDOM_REPLY_AGENT = RandomReplyAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'))
 NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
                                         os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
-PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT)
+PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT, RANDOM_REPLY_AGENT)

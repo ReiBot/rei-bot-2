@@ -355,6 +355,8 @@ class RandomReplyAgent:
 
         self.all_phrases = list(json_manager.read(path_to_phrases).keys())
         self.max_weight = len(self.all_phrases)
+        # for multiplying weight of a given reply
+        self.given_reply_multiplier = 2
         self.phrases_weights: Dict[str, int] = dict()
         for phrase in self.all_phrases:
             self.phrases_weights[phrase] = self.max_weight
@@ -362,13 +364,13 @@ class RandomReplyAgent:
     def get_reply(self, replies: List[str], black_list: List[str], no_empty_reply: bool) -> Tuple[Optional[str]]:
         """
         Gets random reply or nothing if there are no possible replies
-        :param replies: possible replies
+        :param replies: given replies
         :param black_list: prohibited replies
         :param no_empty_reply: flag to indicate that there must be a non-empty reply
         as a returned value
         :return: one chosen reply or None
         """
-        possible_replies = self.all_phrases if not replies and no_empty_reply else replies
+        possible_replies = self.all_phrases if no_empty_reply else replies
         if not possible_replies:
             return None,
 
@@ -376,9 +378,10 @@ class RandomReplyAgent:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
 
         if possible_replies:
-            reply = random.choices(possible_replies, weights=list(map(lambda phrase:
-                                                                      self.phrases_weights[phrase],
-                                                                      possible_replies)))[0]
+            reply = random.choices(possible_replies, weights=list(map(
+                lambda phrase:
+                self.max_weight*self.given_reply_multiplier if phrase in replies else
+                self.phrases_weights[phrase], possible_replies)))[0]
             self.phrases_weights[reply] -= 1
             if self.phrases_weights[reply] == 0:
                 self.phrases_weights[reply] = self.max_weight

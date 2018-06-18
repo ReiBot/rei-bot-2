@@ -230,13 +230,10 @@ class LearningAgent:
 
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
-                if 'replies' not in self.knowledge_base[pattern] \
-                        or not self.knowledge_base[pattern]['replies'] \
-                        and 'black list' in self.knowledge_base[pattern] \
-                        and self.knowledge_base[pattern]['black list']:
-                    black_list += self.knowledge_base[pattern]['black list']
-                else:
+                if 'replies' in self.knowledge_base[pattern]:
                     replies += self.knowledge_base[pattern]['replies']
+                if 'black list' in self.knowledge_base[pattern]:
+                    black_list += self.knowledge_base[pattern]['black list']
 
         # removing replies from black list
         for wrong_reply in black_list:
@@ -340,6 +337,7 @@ class AgentPipeline:
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
             kwargs['agent'] = agent
+            
             # update kwargs by assignment new value got from agent
             kwargs = self._agent_controller(**kwargs)
 
@@ -355,7 +353,7 @@ class RandomReplyAgent:
             LOGGER.error('wrong phrases path for RandomReplyAgent')
             return
 
-        self.all_phrases = json_manager.read(path_to_phrases).keys()
+        self.all_phrases = list(json_manager.read(path_to_phrases).keys())
         self.max_weight = len(self.all_phrases)
         self.phrases_weights: Dict[str, int] = dict()
         for phrase in self.all_phrases:

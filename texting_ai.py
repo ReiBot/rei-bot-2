@@ -2,15 +2,18 @@
 This module contains agents that gives text output on given input text
 """
 
-import random
-import time
-from typing import List, Dict, Optional, Type
 import os.path
+import random
 import re
-from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk import pos_tag
-import text_processing
+from nltk.tokenize import sent_tokenize, word_tokenize
+from typing import List, Dict, Optional, Type
+
 import json_manager
+import logger
+import text_processing
+
+LOGGER = logger.get_logger(__file__)
 
 
 class NounsFindingAgent:
@@ -22,10 +25,6 @@ class NounsFindingAgent:
     # TODO: implement agent for this
     #  min number of other messages between messages sent by bot
     MESSAGES_PERIOD = 10
-
-    # TODO: remove that to bot module as "typing"
-    # seconds to sleep before sending a message
-    SLEEP_TIME = 2
 
     def __init__(self, phrases_json_path: str, nouns_json_path: str):
         # load data from input json
@@ -101,6 +100,7 @@ class NounsFindingAgent:
         # getting reply variants by checking each word if it is known
         for stemmed_word in stemmed_words:
             if stemmed_word in self.stemmed_nouns:
+                LOGGER.info(f'"{stemmed_word}" is found in "{input_text}" text')
                 for noun in self.stemmed_nouns[stemmed_word]:
                     # adding sentences with this noun
                     reply_variants += self.noun_sentences[noun]
@@ -138,7 +138,6 @@ class NounsFindingAgent:
             # for permitting bot from being banned by telegram
             # because of too frequent messages sent
             # TODO: implement agent for this
-            time.sleep(self.SLEEP_TIME)
             self.last_used_reply = result_reply
             self.message_counter = 0
 
@@ -203,6 +202,11 @@ class LearningAgent:
         for sentence in sentences:
             pattern = self.sentence_to_pattern(sentence)
 
+            if right:
+                LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
+            else:
+                LOGGER.info(f'"{pattern}" is learned with prohibited reply "{reply}"')
+
             if pattern not in self.knowledge_base:
                 self.knowledge_base[pattern] = dict()
             knowledge = self.knowledge_base[pattern]
@@ -234,6 +238,8 @@ class LearningAgent:
         # for each known pattern check if the input matches
         for pattern in patterns:
             if re.search(pattern, input_text, re.I):
+                LOGGER.info(f'"{pattern}" pattern is found in "{input_text}" text')
+
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
@@ -259,22 +265,24 @@ class LearningAgent:
 # for adapting kwargs to arguments used by agents
 AGENT_ADAPTERS: Dict[Type, 'function'] = dict()
 AGENT_ADAPTERS[NounsFindingAgent] = lambda **kwargs: \
-    (kwargs.input_text, kwargs.no_empty_reply, kwargs.black_list)
-AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: kwargs.input_text
+    (kwargs.get('input_text', None), kwargs.get('no_empty_reply', None),
+     kwargs.get('black_list', None))
+AGENT_ADAPTERS[LearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
 
 # for calling agents' methods that process input message
 AGENT_CALLERS: Dict[Type, 'function'] = dict()
 AGENT_CALLERS[NounsFindingAgent] = lambda **kwargs: \
-    kwargs.agent.get_reply(*AGENT_ADAPTERS[NounsFindingAgent](kwargs))
+    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[NounsFindingAgent](**kwargs))
 AGENT_CALLERS[LearningAgent] = lambda **kwargs: \
-    kwargs.agent.get_reply(*AGENT_ADAPTERS[LearningAgent](kwargs))
+    kwargs.get('agent', None).get_reply(*AGENT_ADAPTERS[LearningAgent](**kwargs))
 
 
 class AgentPipeline:
     """
     Pipeline that iteratively uses agents in order to get reply on input text
     """
-    # for placing the reply got from the agent of given type with corresponding key in updated_kwargs
+    # for placing the reply got from the agent of given type
+    # with corresponding key in updated_kwargs
     _type_key = {
         str: 'reply',
         List[str]: 'black_list',
@@ -299,9 +307,9 @@ class AgentPipeline:
 
         updated_kwargs = kwargs.copy()
 
-        if not kwargs.reply:
+        if not kwargs.get('reply', None):
             # value to be updated in kwargs
-            result = AGENT_CALLERS[type(kwargs.agent)](kwargs)
+            result = AGENT_CALLERS[type(kwargs.get('agent', None))](**kwargs)
 
             if result:
                 result_type = type(result)
@@ -320,27 +328,37 @@ class AgentPipeline:
         """
         self.agents = args
 
-    def get_reply(self, input_text: str, no_empty_reply: bool) -> Optional[str]:
+    def get_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
         """
         Passes arguments through each of agents and
         returns reply on input text
         :param input_text: input text
         :param no_empty_reply: flag that is True when non-empty reply
         is mandatory and False otherwise
-        :return: text reply on input text
+        :return: text reply on input text or None if there are no reply on given input
         """
 
         # initial values for kwargs
         init_kwargs = {
             'reply': None,
             'input_text': input_text,
-            'no_empty_reply': no_empty_reply
+            'no_empty_reply': no_empty_reply,
+            'black_list': None
         }
+
+        kwargs = init_kwargs
 
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
-            init_kwargs['agent'] = agent
+            kwargs['agent'] = agent
             # update kwargs by assignment new value got from agent
-            kwargs = self._agent_controller(init_kwargs)
+            kwargs = self._agent_controller(**kwargs)
 
-        return kwargs.reply
+        return kwargs.get('reply', None)
+
+
+AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
+LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
+NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
+                                        os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
+PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT)

@@ -200,7 +200,7 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
             grading_message.up_vote(user_id)
         elif call.data == DOWN_VOTE:
             grading_message.down_vote(user_id)
-        keyboard = make_voting_keyboard(grading_message.get_likes(), grading_message.get_dislikes())
+        keyboard = make_voting_keyboard(grading_message.get_likes_num(), grading_message.get_dislikes_num())
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 

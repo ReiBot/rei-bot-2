@@ -18,8 +18,8 @@ class GradableMessage:
     # where -1 is for dislikes > likes 0 is for equality and 1 is for likes > dislikes
     _grade: [-1, 0, 1] = 0
 
-    _likes_n: int = 0
-    _dislikes_n: int = 0
+    _likes_num: int = 0
+    _dislikes_num: int = 0
 
     def __init__(self, message: Message, reply_message: str):
         self._users_liked: Set[int] = set()
@@ -28,25 +28,25 @@ class GradableMessage:
         self.input_message = message.text
         self.reply_message = reply_message
 
-    def _update_likes(self, user_id):
+    def _update_likes_num(self, user_id):
         if user_id in self._users_liked:
-            self._likes_n -= 1
+            self._likes_num -= 1
             self._users_liked.remove(user_id)
         else:
-            self._likes_n += 1
+            self._likes_num += 1
             self._users_liked.add(user_id)
             if user_id in self._users_disliked:
-                self._update_dislikes(user_id)
+                self._update_dislikes_num(user_id)
 
-    def _update_dislikes(self, user_id):
+    def _update_dislikes_num(self, user_id):
         if user_id in self._users_disliked:
-            self._dislikes_n -= 1
+            self._dislikes_num -= 1
             self._users_disliked.remove(user_id)
         else:
-            self._dislikes_n += 1
+            self._dislikes_num += 1
             self._users_disliked.add(user_id)
             if user_id in self._users_liked:
-                self._update_likes(user_id)
+                self._update_likes_num(user_id)
 
     def update_grade(self) -> bool:
         """
@@ -54,9 +54,9 @@ class GradableMessage:
         :return: True if the grade was changed else False
         """
         old_grade = self._grade
-        if self._likes_n > self._dislikes_n:
+        if self._likes_num > self._dislikes_num:
             self._grade = 1
-        elif self._likes_n < self._dislikes_n:
+        elif self._likes_num < self._dislikes_num:
             self._grade = -1
         else:
             self._grade = 0
@@ -69,7 +69,7 @@ class GradableMessage:
         :param user_id: id of a voted user
         :return: None
         """
-        self._update_likes(user_id)
+        self._update_likes_num(user_id)
 
     def down_vote(self, user_id: int) -> None:
         """
@@ -77,21 +77,21 @@ class GradableMessage:
         :param user_id: id of a voted user
         :return: None
         """
-        self._update_dislikes(user_id)
+        self._update_dislikes_num(user_id)
 
-    def get_likes(self) -> int:
+    def get_likes_num(self) -> int:
         """
         Gets number of likes
         :return: number of likes
         """
-        return self._likes_n
+        return self._likes_num
 
-    def get_dislikes(self) -> int:
+    def get_dislikes_num(self) -> int:
         """
         Gets number of dislikes
         :return: number of dislikes
         """
-        return self._dislikes_n
+        return self._dislikes_num
 
     def get_grade(self) -> int:
         """

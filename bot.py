@@ -82,7 +82,7 @@ APP.router.add_post('/{token}/', handle)
 
 @BOT.message_handler(commands=['start'])
 @BOT.message_handler(commands=['ask'])
-def start_reply(message: telebot.types.Message) -> None:
+def command_reply(message: telebot.types.Message) -> None:
     """
     Handler for /start and /ask commands
     Sends message back to user that sent /start or /ask command

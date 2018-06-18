@@ -182,14 +182,14 @@ class LearningAgent:
         other_key = 'black list' if right else 'replies'
 
         sentences = sent_tokenize(input_text)
-
+        
         # each sentence in the text is converted to regex pattern and the information
         # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
             pattern = self._sentence_to_pattern(sentence)
 
             if not pattern:
-                break
+                continue
 
             if right:
                 LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
@@ -380,7 +380,7 @@ class RandomReplyAgent:
         if possible_replies:
             reply = random.choices(possible_replies, weights=list(map(
                 lambda phrase:
-                self.max_weight*self.given_reply_multiplier if phrase in replies else
+                self.phrases_weights[phrase]*self.given_reply_multiplier if no_empty_reply and phrase in replies else
                 self.phrases_weights[phrase], possible_replies)))[0]
             self.phrases_weights[reply] -= 1
             if self.phrases_weights[reply] == 0:

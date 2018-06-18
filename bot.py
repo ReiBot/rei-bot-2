@@ -149,6 +149,20 @@ def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeybo
     return keyboard
 
 
+def remove_inline_keyboard(message: telebot.types.Message) -> None:
+    """
+    Removes inline keyboard from message
+    :param message: the message a keyboard to be removed from
+    :return: None
+    """
+    # handling connection errors
+    try:
+        BOT.edit_message_reply_markup(chat_id=message.chat.id,
+                                      message_id=message.message_id, reply_markup=None)
+    except Exception as error:
+        LOGGER.error(error)
+
+
 def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) -> None:
     """
     Sends reply on message
@@ -161,10 +175,10 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
         LOGGER.error("empty reply in reply_message()")
         return
 
+    # removing keyboard from previous message
     if messages.CURRENT_GRADING_MESSAGE:
         old_message: telebot.types.Message = messages.CURRENT_GRADING_MESSAGE.message
-        BOT.edit_message_reply_markup(chat_id=old_message.chat.id,
-                                      message_id=old_message.message_id, reply_markup=None)
+        remove_inline_keyboard(old_message)
 
     BOT.send_chat_action(message.chat.id, TYPING)
     time.sleep(TYPING_TIME)
@@ -184,23 +198,34 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
     """Callback that
     is executed when a user presses a button on the message inline keyboard"""
 
-    grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
-    message: telebot.types.Message = call.message
-
-    # if the message is not the one that is currently grading
-    # then remove keyboard
-    if not grading_message or message.message_id != grading_message.message.message_id:
-        BOT.edit_message_reply_markup(chat_id=message.chat.id,
-                                      message_id=message.message_id, reply_markup=None)
-        return
-
     if call.data in {DOWN_VOTE, UP_VOTE}:
+        grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
+        message: telebot.types.Message = call.message
+
+        # if the message is not the one that is currently grading
+        # then remove keyboard
+        if not grading_message or message.message_id != grading_message.message.message_id:
+            remove_inline_keyboard(message)
+            return
+
         user_id = call.from_user.id
+
         if call.data == UP_VOTE:
+            is_right_message = True  # for assigning message as wrong or as right
             grading_message.up_vote(user_id)
         elif call.data == DOWN_VOTE:
+            is_right_message = False
             grading_message.down_vote(user_id)
-        keyboard = make_voting_keyboard(grading_message.get_likes_num(), grading_message.get_dislikes_num())
+
+        # learning
+        if grading_message.update_grade() and grading_message.get_grade() != 0:
+            texting_ai.LEARNING_AGENT.learn(grading_message.input_message,
+                                            grading_message.reply_message,
+                                            is_right_message)
+
+        # attaching keyboard to message
+        keyboard = make_voting_keyboard(grading_message.get_likes_num(),
+                                        grading_message.get_dislikes_num())
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 

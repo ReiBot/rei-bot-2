@@ -7,7 +7,7 @@ import random
 import re
 from nltk import pos_tag
 from nltk.tokenize import sent_tokenize, word_tokenize
-from typing import List, Dict, Optional, Type
+from typing import List, Dict, Optional, Type, Tuple
 
 import json_manager
 import logger
@@ -147,6 +147,28 @@ class NounsFindingAgent:
 class LearningAgent:
     """Agent that learns what to say
     depending on user's evaluation of replies given by replying agent"""
+    _parts_of_speech = {
+        'noun': 'S',
+        'verb': 'V',
+        'personal pronoun': 'S-PRO',
+        'connecting words': 'CONJ',
+        'other': 'NONLEX'
+    }
+
+    def _is_simple(self, tagged_words: List[Tuple[str, str]]) -> bool:
+        # are there any punctuation symbols other than in the end?
+        punctuation_symbols = \
+            list(filter(lambda word, tag: tag == self._parts_of_speech['other'],
+                        tagged_words))
+        if len(punctuation_symbols) >= 1 or len(punctuation_symbols) == 1 \
+                and tagged_words[-1] != punctuation_symbols[0]:
+            return False
+
+        # are there any connecting words (союзы)?
+        connecting_words = \
+            list(filter(lambda word, tag: tag == self._parts_of_speech['connecting words'],
+                        tagged_words))
+        return False if connecting_words else True
 
     def __init__(self, save_file_name: str):
         """
@@ -163,23 +185,33 @@ class LearningAgent:
             self.knowledge_base: Dict[str, Dict[str, List[str]]] = dict()
             json_manager.write(self.knowledge_base, save_file_name)
 
-    def sentence_to_pattern(self, sentence: str) -> str:
+    def _sentence_to_pattern(self, sentence: str) -> Optional[str]:
         """
         Makes regex pattern out of sentence
-        by getting all nouns and verbs and joining them into one string
+        by getting all nouns, verbs and personal pronouns
+        and joining them into one string
         :param sentence: input sentence
-        :return: regex string
+        :return: regex string or None if it's impossible to make one
         """
 
-        nouns_and_verbs = list()
+        parts_of_speech = list()
 
         tagged = pos_tag(word_tokenize(sentence), lang='rus')
-        for word, tag in tagged:
-            # S is for nouns and V is for verbs
-            if tag in ['S', 'V']:
-                nouns_and_verbs.append(text_processing.stem(word))
 
-        return self.pattern_delimiter.join(nouns_and_verbs)
+        # is sentence simple?
+        if not self._is_simple(tagged):
+            return None
+
+        for word, tag in tagged:
+            if tag in [self._parts_of_speech['noun'], self._parts_of_speech['verb'],
+                       self._parts_of_speech['personal pronoun']]:
+                parts_of_speech.append(text_processing.stem(word))
+
+        # is there anything to make pattern from?
+        if not parts_of_speech:
+            return None
+
+        return self.pattern_delimiter.join(parts_of_speech)
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -200,7 +232,10 @@ class LearningAgent:
         # each sentence in the text is converted to regex pattern and the information
         # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
-            pattern = self.sentence_to_pattern(sentence)
+            pattern = self._sentence_to_pattern(sentence)
+
+            if not pattern:
+                break
 
             if right:
                 LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
@@ -216,7 +251,6 @@ class LearningAgent:
             knowledge[key].append(reply)
 
             if other_key in knowledge and reply in knowledge[other_key]:
-
                 # remove ALL occurrences of reply
                 knowledge[other_key] = list(filter(lambda a: a != reply, knowledge[other_key]))
 

@@ -5,9 +5,10 @@ This module contains agents that gives text output on given input text
 import os.path
 import random
 import re
+from typing import List, Dict, Optional, Type, Tuple
+
 from nltk import pos_tag
 from nltk.tokenize import sent_tokenize, word_tokenize
-from typing import List, Dict, Optional, Type, Tuple
 
 import json_manager
 import logger
@@ -165,7 +166,8 @@ class LearningAgent:
 
         # are there any connecting words (союзы)?
         connecting_words = \
-            list(filter(lambda tagged_word: tagged_word[1] == self._parts_of_speech['connecting words'],
+            list(filter(lambda tagged_word: tagged_word[1]
+                        == self._parts_of_speech['connecting words'],
                         tagged_words))
         return False if connecting_words else True
 
@@ -276,7 +278,9 @@ class LearningAgent:
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
-                        or not self.knowledge_base[pattern]['replies'] and 'black list' in self.knowledge_base[pattern] and self.knowledge_base[pattern]['black list']:
+                        or not self.knowledge_base[pattern]['replies'] \
+                        and 'black list' in self.knowledge_base[pattern] \
+                        and self.knowledge_base[pattern]['black list']:
                     black_list += self.knowledge_base[pattern]['black list']
                 else:
                     replies += self.knowledge_base[pattern]['replies']

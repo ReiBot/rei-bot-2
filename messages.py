@@ -1,7 +1,8 @@
 """Module for operating on telegram messages"""
 
-from telebot.types import Message
 from typing import Set
+
+from telebot.types import Message
 
 import logger
 

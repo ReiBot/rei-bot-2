@@ -3,13 +3,13 @@ Telegram bot module
 """
 
 import time
-
-import emoji
 import os.path
 import ssl
-import telebot
-from aiohttp import web
 from configparser import ConfigParser
+
+import telebot
+import emoji
+from aiohttp import web
 
 import logger
 import messages

@@ -21,12 +21,14 @@ class GradableMessage:
     _likes_num: int = 0
     _dislikes_num: int = 0
 
-    def __init__(self, message: Message, reply_message: str):
+    def __init__(self, message: Message, input_message: str):
         self._users_liked: Set[int] = set()
         self._users_disliked: Set[int] = set()
+        # message that bot sent
         self.message = message
-        self.input_message = message.text
-        self.reply_message = reply_message
+        self.reply_message = message.text
+        # message that bot received
+        self.input_message = input_message
 
     def _update_likes_num(self, user_id):
         if user_id in self._users_liked:

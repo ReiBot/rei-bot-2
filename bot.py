@@ -190,7 +190,7 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     else:
         new_message = BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
 
-    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, reply)
+    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, message.text)
 
 
 @BOT.callback_query_handler(func=lambda call: True)

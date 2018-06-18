@@ -113,10 +113,9 @@ class NounsFindingAgent:
                 return None
 
         # omitting variants from black list
-        if black_list:
-            for reply in reply_variants:
-                if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
-                    reply_variants.remove(reply)
+        for reply in reply_variants:
+            if reply in black_list and (not no_empty_reply or len(reply_variants) > 1):
+                reply_variants.remove(reply)
 
         # choosing reply which was not used before by checking last_used_reply attribute
         result_reply = None
@@ -158,15 +157,15 @@ class LearningAgent:
     def _is_simple(self, tagged_words: List[Tuple[str, str]]) -> bool:
         # are there any punctuation symbols other than in the end?
         punctuation_symbols = \
-            list(filter(lambda word, tag: tag == self._parts_of_speech['other'],
+            list(filter(lambda tagged_word: tagged_word[1] == self._parts_of_speech['other'],
                         tagged_words))
-        if len(punctuation_symbols) >= 1 or len(punctuation_symbols) == 1 \
+        if len(punctuation_symbols) > 1 or len(punctuation_symbols) == 1 \
                 and tagged_words[-1] != punctuation_symbols[0]:
             return False
 
         # are there any connecting words (союзы)?
         connecting_words = \
-            list(filter(lambda word, tag: tag == self._parts_of_speech['connecting words'],
+            list(filter(lambda tagged_word: tagged_word[1] == self._parts_of_speech['connecting words'],
                         tagged_words))
         return False if connecting_words else True
 
@@ -277,8 +276,8 @@ class LearningAgent:
                 # if there no replies for matched pattern but there are non-empty black list
                 # then add this information
                 if 'replies' not in self.knowledge_base[pattern] \
-                        or not self.knowledge_base['replies'] and self.knowledge_base['black list']:
-                    black_list += self.knowledge_base['black list']
+                        or not self.knowledge_base[pattern]['replies'] and 'black list' in self.knowledge_base[pattern] and self.knowledge_base[pattern]['black list']:
+                    black_list += self.knowledge_base[pattern]['black list']
                 else:
                     replies += self.knowledge_base[pattern]['replies']
 
@@ -290,7 +289,7 @@ class LearningAgent:
 
                     # remove ALL occurrences of wrong reply from replies
                     replies = list(filter(lambda a: a != wrong_reply, replies))
-            return random.choices(replies)
+            return random.choice(replies)
         elif black_list:
             return black_list
         return None
@@ -319,7 +318,7 @@ class AgentPipeline:
     # with corresponding key in updated_kwargs
     _type_key = {
         str: 'reply',
-        List[str]: 'black_list',
+        list: 'black_list',
         bool: 'no_empty_reply'
     }
 
@@ -344,13 +343,16 @@ class AgentPipeline:
         if not kwargs.get('reply', None):
             # value to be updated in kwargs
             result = AGENT_CALLERS[type(kwargs.get('agent', None))](**kwargs)
-
             if result:
                 result_type = type(result)
                 if result_type in self._type_key:
                     # updating list by adding new elements
                     if isinstance(result, list):
-                        updated_kwargs[self._type_key[result_type]].extend(result)
+                        kwargs_list = updated_kwargs[self._type_key[result_type]]
+                        if not kwargs_list:
+                            kwargs_list = list()
+                        kwargs_list.extend(result)
+                        updated_kwargs[self._type_key[result_type]] = kwargs_list
                     else:
                         updated_kwargs[self._type_key[result_type]] = result
 

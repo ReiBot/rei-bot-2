@@ -21,7 +21,7 @@ class NounsFindingAgent:
 
     # TODO remove that to bot module as "typing"
     #  min number of other messages between messages sent by bot
-    MESSAGES_PERIOD = 10
+    MESSAGES_PERIOD = 1000
 
     # TODO: implement agent for this
     # seconds to sleep before sending a message
@@ -70,7 +70,7 @@ class NounsFindingAgent:
 
         # for decreasing frequency of messages sent by bot
         # TODO remove that to bot module as "typing"
-        self.message_counter = self.MESSAGES_PERIOD
+        self.message_counter = 0
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False,
                   black_list: Optional[List[str]] = None) -> Optional[str]:
@@ -83,7 +83,6 @@ class NounsFindingAgent:
         :param black_list: replies to be omitted from possible variants
         :return: text with the reply
         """
-<<<<<<< Updated upstream
 
         if not input_text:
             return None

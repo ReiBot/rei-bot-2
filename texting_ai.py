@@ -374,13 +374,10 @@ class RandomReplyAgent:
         as a returned value
         :return: one chosen reply or None
         """
-        possible_replies = replies + (list(filter(lambda x: x not in replies,
-                                      self.all_phrases))
-                                      if no_empty_reply else random.choices(list(filter(
+        possible_replies = replies + random.choices(list(filter(
                                        lambda x: x not in replies,
                                        self.all_phrases)),
-                                       k=math.floor(len(replies)/self.random_reply_divisor)))
-
+                                       k=1 if no_empty_reply else math.floor(len(replies)/self.random_reply_divisor))
         if black_list:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
 
@@ -389,11 +386,19 @@ class RandomReplyAgent:
                 lambda phrase:
                 self.phrases_weights[phrase]*self.given_reply_multiplier if phrase in replies else
                 self.phrases_weights[phrase], possible_replies)))[0]
+        elif no_empty_reply:
+            possible_replies = list(filter(lambda x: x not in black_list, self.all_phrases))
+            reply = random.choices(possible_replies,
+                weights=list(map(
+                lambda phrase: self.phrases_weights[phrase],
+                 possible_replies)))[0]
+        else:
+            reply = None
+
+        if reply:
             self.phrases_weights[reply] -= 1
             if self.phrases_weights[reply] == 0:
                 self.phrases_weights[reply] = self.max_weight
-        else:
-            reply = None
 
         return reply,
 

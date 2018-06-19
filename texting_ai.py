@@ -465,15 +465,15 @@ class ConversationController:
         return re.search('\?', text)
 
     def __init__(self):
-        self.messages_counter = MessagesCounter()
-        self.call_checker = TextCallChecker()
+        self._messages_counter = MessagesCounter()
+        self._call_checker = TextCallChecker()
 
         agent_language_path = os.path.join('data', 'language')
         learning_agent = LearningAgent(os.path.join('data', 'learning_model.json'))
         random_reply_agent = RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
         nouns_finding_agent = NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
                                                 os.path.join(agent_language_path, 'nouns.json'))
-        self.agents_pipeline = AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
+        self._agents_pipeline = AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
 
     def proceed_input_message(self, input_text: str, is_private: bool = False, is_call: bool = False) -> Optional[str]:
         """
@@ -485,11 +485,11 @@ class ConversationController:
         """
         no_empty_reply = \
             True if self._is_question(input_text) or is_call \
-            or self.call_checker.check(input_text) else False
-        if is_private or self.messages_counter.count_and_check():
-            reply = self.agents_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
+            or self._call_checker.check(input_text) else False
+        if is_private or self._messages_counter.count_and_check():
+            reply = self._agents_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
-                self.messages_counter.reset()
+                self._messages_counter.reset()
         else:
             reply = None
 

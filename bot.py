@@ -80,19 +80,19 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-@BOT.message_handler(commands=['start'])
 @BOT.message_handler(commands=['ask'])
 def command_reply(message: telebot.types.Message) -> None:
     """
-    Handler for /start and /ask commands
+    Handler for /ask command
     Sends message back to user that sent /start or /ask command
     :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
 
-    reply_message(message, texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True),
-                  False if message.chat.type == PRIVATE_MESSAGE else True)
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    reply_message(message, texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text, is_private, True),
+                  is_private)
 
 
 # Handle text messages
@@ -104,18 +104,10 @@ def text_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     text = message.text
-    is_reply = True
-    no_empty_reply = True
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    is_reply = True if not is_private else False
 
-    # if private message
-    if message.chat.type == PRIVATE_MESSAGE:
-        is_reply = False
-    # TODO add forward handling
-    # if group message and not a reply on bot's message
-    elif not check_reply(BOT.get_me().id, message):
-        no_empty_reply = False
-
-    reply = texting_ai.PIPELINE.get_reply(text, no_empty_reply=no_empty_reply)
+    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private)
     if reply:
         reply_message(message, reply, is_reply)
 

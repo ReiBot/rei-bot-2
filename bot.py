@@ -92,7 +92,7 @@ def command_reply(message: telebot.types.Message) -> None:
 
     is_private = message.chat.type == PRIVATE_MESSAGE
     reply_message(message, texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text, is_private, True),
-                  is_private)
+                  not is_private)
 
 
 # Handle text messages
@@ -105,11 +105,12 @@ def text_reply(message: telebot.types.Message) -> None:
     """
     text = message.text
     is_private = message.chat.type == PRIVATE_MESSAGE
-    is_reply = True if not is_private else False
+    is_reply = check_reply(BOT.get_me().id, message)
+    as_reply = True if not is_private else False
 
-    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private)
+    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private or is_reply)
     if reply:
-        reply_message(message, reply, is_reply)
+        reply_message(message, reply, as_reply)
 
 
 def check_reply(_id: int, message: telebot.types.Message) -> bool:

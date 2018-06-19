@@ -375,9 +375,10 @@ class RandomReplyAgent:
         :return: one chosen reply or None
         """
         possible_replies = replies + random.choices(list(filter(
-                                       lambda x: x not in replies,
-                                       self.all_phrases)),
-                                       k=1 if no_empty_reply else math.floor(len(replies)/self.random_reply_divisor))
+        lambda x: x not in replies,
+        self.all_phrases)), k=1 if no_empty_reply else math.floor(len(replies)/2)) if replies else \
+            self.all_phrases if no_empty_reply else list()
+
         if black_list:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
 
@@ -386,12 +387,6 @@ class RandomReplyAgent:
                 lambda phrase:
                 self.phrases_weights[phrase]*self.given_reply_multiplier if phrase in replies else
                 self.phrases_weights[phrase], possible_replies)))[0]
-        elif no_empty_reply:
-            possible_replies = list(filter(lambda x: x not in black_list, self.all_phrases))
-            reply = random.choices(possible_replies,
-                weights=list(map(
-                lambda phrase: self.phrases_weights[phrase],
-                 possible_replies)))[0]
         else:
             reply = None
 
@@ -401,6 +396,30 @@ class RandomReplyAgent:
                 self.phrases_weights[reply] = self.max_weight
 
         return reply,
+
+
+class MessagesCounter:
+    """For control of messages frequency of the bot"""
+
+    # minimum number of messages between bot's replies
+    messages_period = 100
+    # number of all messages that bot received
+    messages_num = 0
+
+    def count_and_check(self) -> bool:
+        """
+        increases number of received messages and checks if it is more than period
+        :return: is messages number more than period?
+        """
+        self.messages_num += 1
+        return self.messages_num > self.messages_period
+
+    def reset(self) -> None:
+        """
+        resets counter
+        :return: None
+        """
+        self.messages_num = 0
 
 
 AGENT_LANGUAGE_PATH = os.path.join('data', 'language')

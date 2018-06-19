@@ -4,6 +4,7 @@ This module contains agents that gives text output on given input text
 
 import os.path
 import random
+import math
 import re
 from typing import List, Dict, Optional, Type, Tuple
 
@@ -357,6 +358,7 @@ class RandomReplyAgent:
         self.max_weight = len(self.all_phrases)
         # for multiplying weight of a given reply
         self.given_reply_multiplier = 2
+        self.random_reply_divisor = 2
         self.phrases_weights: Dict[str, int] = dict()
         for phrase in self.all_phrases:
             self.phrases_weights[phrase] = self.max_weight
@@ -370,9 +372,12 @@ class RandomReplyAgent:
         as a returned value
         :return: one chosen reply or None
         """
-        possible_replies = self.all_phrases if no_empty_reply else replies
-        if not possible_replies:
-            return None,
+        possible_replies = replies + (list(filter(lambda x: x not in replies,
+                                      self.all_phrases))
+                                      if no_empty_reply else random.choices(list(filter(
+                                       lambda x: x not in replies,
+                                       self.all_phrases)),
+                                       k=math.floor(len(replies)/self.random_reply_divisor)))
 
         if black_list:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
@@ -380,7 +385,7 @@ class RandomReplyAgent:
         if possible_replies:
             reply = random.choices(possible_replies, weights=list(map(
                 lambda phrase:
-                self.phrases_weights[phrase]*self.given_reply_multiplier if no_empty_reply and phrase in replies else
+                self.phrases_weights[phrase]*self.given_reply_multiplier if phrase in replies else
                 self.phrases_weights[phrase], possible_replies)))[0]
             self.phrases_weights[reply] -= 1
             if self.phrases_weights[reply] == 0:

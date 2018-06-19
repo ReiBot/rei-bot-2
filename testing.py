@@ -9,7 +9,7 @@ import json_manager
 import texting_ai
 
 
-def test_reply_agent(agent: 'agent with "get_reply" function',
+def test_reply_agent(agent_function: "agent's function to process input message",
                      test_file_name: str,
                      test_output_file_name: str = 'test_output.json') -> None:
     """
@@ -19,7 +19,7 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
     :param test_output_file_name: file for writing testing output in
     :return: None
     """
-    if not (agent and test_file_name and test_output_file_name):
+    if not (agent_f and test_file_name and test_output_file_name):
         return
 
     # read lines of text as messages
@@ -30,12 +30,8 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
     test_output: List[Dict[str, str]] = list()
 
     for message in messages:
-        if isinstance(agent, texting_ai.AgentPipeline):
-            test_output.append({"message": message,
-                                "reply": agent.get_reply(message)})
-        else:
-            test_output.append({"message": message,
-                                "reply": agent.get_replies(message)})
+        test_output.append({"message": message,
+                            "reply": agent_function(message)})
 
     json_manager.write(test_output, test_output_file_name)
 
@@ -43,6 +39,6 @@ def test_reply_agent(agent: 'agent with "get_reply" function',
 TEST_NUMBERS = [1, 0, 2]
 
 for test_n in TEST_NUMBERS:
-    for agent in [texting_ai.NOUNS_FINDING_AGENT, texting_ai.LEARNING_AGENT, texting_ai.PIPELINE]:
-        test_reply_agent(agent, os.path.join('data', 'tests', f'test{str(test_n)}.txt'),
-                         test_output_file_name=f'test_output_{str(agent.__class__)}_n_{str(test_n)}.txt')
+    for agent_f in [texting_ai.CONVERSATION_CONTROLLER.proceed_input_message]:
+        test_reply_agent(agent_f, os.path.join('data', 'tests', f'test{str(test_n)}.txt'),
+                         test_output_file_name=f'test_output_CONVERSATION_CONTROLLER_n_{str(test_n)}.txt')

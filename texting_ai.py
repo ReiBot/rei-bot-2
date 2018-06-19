@@ -121,7 +121,7 @@ class LearningAgent:
         # are there any connecting words (союзы)?
         connecting_words = \
             list(filter(lambda tagged_word: tagged_word[1]
-                        == self._parts_of_speech['connecting words'],
+                                            == self._parts_of_speech['connecting words'],
                         tagged_words))
         return False if connecting_words else True
 
@@ -183,7 +183,7 @@ class LearningAgent:
         other_key = 'black list' if right else 'replies'
 
         sentences = sent_tokenize(input_text)
-        
+
         # each sentence in the text is converted to regex pattern and the information
         # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
@@ -308,12 +308,12 @@ class AgentPipeline:
 
         # for converting agent's output to kwargs parameter(s)
         self._kwargs_converter: Dict[Type, 'function'] = dict()
-        self._kwargs_converter[NounsFindingAgent] = lambda replies, kwargs:\
+        self._kwargs_converter[NounsFindingAgent] = lambda replies, kwargs: \
             {'reply_variants': kwargs['reply_variants'] + replies}
-        self._kwargs_converter[LearningAgent] = lambda replies, black_list, kwargs:\
+        self._kwargs_converter[LearningAgent] = lambda replies, black_list, kwargs: \
             {'reply_variants': kwargs['reply_variants'] + replies,
              'black_list': kwargs['black_list'] + black_list}
-        self._kwargs_converter[RandomReplyAgent] = lambda reply, kwargs:\
+        self._kwargs_converter[RandomReplyAgent] = lambda reply, kwargs: \
             {'reply': reply}
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
@@ -340,7 +340,7 @@ class AgentPipeline:
         # iterating through agents and passing kwargs through each one
         for agent in self.agents:
             kwargs['agent'] = agent
-            
+
             # update kwargs by assignment new value got from agent
             kwargs = self._agent_controller(**kwargs)
 
@@ -351,6 +351,7 @@ class RandomReplyAgent:
     """
     Agent that chooses random replies from given ones
     """
+
     def __init__(self, path_to_phrases: str):
         if not (path_to_phrases or os.path.isfile(path_to_phrases)):
             LOGGER.error('wrong phrases path for RandomReplyAgent')
@@ -375,8 +376,8 @@ class RandomReplyAgent:
         :return: one chosen reply or None
         """
         possible_replies = replies + random.choices(list(filter(
-        lambda x: x not in replies,
-        self.all_phrases)), k=1 if no_empty_reply else math.floor(len(replies)/2)) if replies else \
+            lambda x: x not in replies,
+            self.all_phrases)), k=1 if no_empty_reply else math.floor(len(replies) / 2)) if replies else \
             self.all_phrases if no_empty_reply else list()
 
         if black_list:
@@ -385,7 +386,7 @@ class RandomReplyAgent:
         if possible_replies:
             reply = random.choices(possible_replies, weights=list(map(
                 lambda phrase:
-                self.phrases_weights[phrase]*self.given_reply_multiplier if phrase in replies else
+                self.phrases_weights[phrase] * self.given_reply_multiplier if phrase in replies else
                 self.phrases_weights[phrase], possible_replies)))[0]
         else:
             reply = None
@@ -402,7 +403,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 100
+    messages_period = 200
     # number of all messages that bot received
     messages_num = 0
 
@@ -422,9 +423,77 @@ class MessagesCounter:
         self.messages_num = 0
 
 
-AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
-LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
-RANDOM_REPLY_AGENT = RandomReplyAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'))
-NOUNS_FINDING_AGENT = NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
-                                        os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
-PIPELINE = AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT, RANDOM_REPLY_AGENT)
+class TextCallChecker:
+    def __init__(self):
+        self.names = [
+            'рей',
+            'аянами',
+            'рей аянами',
+            'аянами рей'
+        ]
+
+    def check(self, text) -> bool:
+        """
+        checks if the text contains the calling construction
+        :param text: text to check
+        :return: True if text contains the construction else False
+        """
+        punct_symbols_string = '\,\.\!\?'
+
+        for name in self.names:
+            regex_strings = [
+                f'^{name}$',
+                f'^{name}[{punct_symbols_string}]',
+                f'[{punct_symbols_string}] {name}[{punct_symbols_string}]',
+                f'[{punct_symbols_string}] {name}$'
+            ]
+
+            for regex_s in regex_strings:
+                if re.search(regex_s, text, re.I):
+                    return True
+
+        return False
+
+
+class ConversationController:
+    """
+    Controls how bot should reply on a given message depending on its source
+    """
+
+    @staticmethod
+    def _is_question(text) -> bool:
+        return re.search('\?', text)
+
+    def __init__(self):
+        self.messages_counter = MessagesCounter()
+        self.call_checker = TextCallChecker()
+
+        agent_language_path = os.path.join('data', 'language')
+        learning_agent = LearningAgent(os.path.join('data', 'learning_model.json'))
+        random_reply_agent = RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
+        nouns_finding_agent = NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
+                                                os.path.join(agent_language_path, 'nouns.json'))
+        self.agents_pipeline = AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
+
+    def proceed_input_message(self, input_text: str, is_private: bool = False, is_call: bool = False) -> Optional[str]:
+        """
+        data flow when the message is received
+        :param input_text: text of the message
+        :param is_private: is message private?
+        :param is_call: does message contains calling construction?
+        :return: reply on message or None
+        """
+        no_empty_reply = \
+            True if self._is_question(input_text) or is_call \
+            or self.call_checker.check(input_text) else False
+        if is_private or self.messages_counter.count_and_check():
+            reply = self.agents_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
+            if reply:
+                self.messages_counter.reset()
+        else:
+            reply = None
+
+        return reply
+
+
+CONVERSATION_CONTROLLER = ConversationController()

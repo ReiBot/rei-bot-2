@@ -440,6 +440,8 @@ class TextCallChecker:
         """
         punct_symbols_string = '\,\.\!\?'
 
+        text = text.replace("\n", "")
+
         for name in self.names:
             regex_strings = [
                 f'^{name}$',
@@ -483,10 +485,10 @@ class ConversationController:
         :param is_call: does message contains calling construction?
         :return: reply on message or None
         """
+        is_call = is_call or self._call_checker.check(input_text)
         no_empty_reply = \
-            True if self._is_question(input_text) or is_call \
-            or self._call_checker.check(input_text) else False
-        if is_private or self._messages_counter.count_and_check():
+            True if self._is_question(input_text) or is_call else False
+        if is_call or is_private or self._messages_counter.count_and_check():
             reply = self._agents_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
                 self._messages_counter.reset()

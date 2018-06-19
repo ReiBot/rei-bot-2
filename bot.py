@@ -84,14 +84,16 @@ APP.router.add_post('/{token}/', handle)
 def command_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
-    Sends message back to user that sent /start or /ask command
+    Sends message back to user that sent /ask command
     :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
 
     is_private = message.chat.type == PRIVATE_MESSAGE
-    reply_message(message, texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text, is_private, True),
+    reply_message(message,
+                  texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
+                                                                           is_private, True),
                   not is_private)
 
 

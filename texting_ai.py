@@ -121,7 +121,7 @@ class LearningAgent:
         # are there any connecting words (союзы)?
         connecting_words = \
             list(filter(lambda tagged_word: tagged_word[1]
-                                            == self._parts_of_speech['connecting words'],
+                        == self._parts_of_speech['connecting words'],
                         tagged_words))
         return False if connecting_words else True
 
@@ -366,7 +366,8 @@ class RandomReplyAgent:
         for phrase in self.all_phrases:
             self.phrases_weights[phrase] = self.max_weight
 
-    def get_reply(self, replies: List[str], black_list: List[str], no_empty_reply: bool) -> Tuple[Optional[str]]:
+    def get_reply(self, replies: List[str], black_list: List[str],
+                  no_empty_reply: bool) -> Tuple[Optional[str]]:
         """
         Gets random reply or nothing if there are no possible replies
         :param replies: given replies
@@ -377,7 +378,10 @@ class RandomReplyAgent:
         """
         possible_replies = replies + random.choices(list(filter(
             lambda x: x not in replies,
-            self.all_phrases)), k=1 if no_empty_reply else math.floor(len(replies) / 2)) if replies else \
+            self.all_phrases)),
+            k=1 if no_empty_reply else
+            math.floor(len(replies) / 2)) \
+            if replies else \
             self.all_phrases if no_empty_reply else list()
 
         if black_list:
@@ -424,6 +428,9 @@ class MessagesCounter:
 
 
 class TextCallChecker:
+    """
+    Checks if the text contains the calling construction
+    """
     def __init__(self):
         self.names = [
             'рей',
@@ -435,10 +442,11 @@ class TextCallChecker:
     def check(self, text) -> bool:
         """
         checks if the text contains the calling construction
+        using regex searching with names
         :param text: text to check
         :return: True if text contains the construction else False
         """
-        punct_symbols_string = '\,\.\!\?'
+        punct_symbols_string = r'\,\.\!\?'
 
         text = text.replace("\n", "")
 
@@ -463,7 +471,7 @@ class ConversationController:
 
     @staticmethod
     def _is_question(text) -> bool:
-        return re.search('\?', text)
+        return re.search(r'\?', text)
 
     def __init__(self):
         self._messages_counter = MessagesCounter()
@@ -471,12 +479,17 @@ class ConversationController:
 
         agent_language_path = os.path.join('data', 'language')
         learning_agent = LEARNING_AGENT
-        random_reply_agent = RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
-        nouns_finding_agent = NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
-                                                os.path.join(agent_language_path, 'nouns.json'))
-        self._agents_pipeline = AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
+        random_reply_agent = \
+            RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
+        nouns_finding_agent = \
+            NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
+                              os.path.join(agent_language_path, 'nouns.json'))
+        self._agents_pipeline = \
+            AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
 
-    def proceed_input_message(self, input_text: str, is_private: bool = False, is_call: bool = False) -> Optional[str]:
+    def proceed_input_message(self, input_text: str,
+                              is_private: bool = False,
+                              is_call: bool = False) -> Optional[str]:
         """
         data flow when the message is received
         :param input_text: text of the message
@@ -495,6 +508,7 @@ class ConversationController:
             reply = None
 
         return reply
+
 
 LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
 CONVERSATION_CONTROLLER = ConversationController()

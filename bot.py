@@ -91,7 +91,9 @@ def command_reply(message: telebot.types.Message) -> None:
     # TODO for /ask implement replying on previous message
 
     is_private = message.chat.type == PRIVATE_MESSAGE
-    reply_message(message, texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text, is_private, True),
+    reply_message(message,
+                  texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
+                                                                           is_private, True),
                   not is_private)
 
 

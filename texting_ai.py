@@ -469,7 +469,7 @@ class ConversationController:
         self._call_checker = TextCallChecker()
 
         agent_language_path = os.path.join('data', 'language')
-        learning_agent = LearningAgent(os.path.join('data', 'learning_model.json'))
+        learning_agent = LEARNING_AGENT
         random_reply_agent = RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
         nouns_finding_agent = NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
                                                 os.path.join(agent_language_path, 'nouns.json'))
@@ -495,5 +495,5 @@ class ConversationController:
 
         return reply
 
-
+LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
 CONVERSATION_CONTROLLER = ConversationController()

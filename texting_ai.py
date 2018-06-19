@@ -203,7 +203,9 @@ class LearningAgent:
 
             if key not in knowledge:
                 knowledge[key] = list()
-            knowledge[key].append(reply)
+
+            if reply not in knowledge[key]:
+                knowledge[key].append(reply)
 
             if other_key in knowledge and reply in knowledge[other_key]:
                 # remove ALL occurrences of reply

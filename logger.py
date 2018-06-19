@@ -7,7 +7,11 @@ from logging import Logger
 import os.path
 
 # Path to write
-LOG_FILE_PATH = os.path.join('data', 'logs', 'logs.txt')
+LOG_FOLDER_PATH = os.path.join('data', 'logs')
+LOG_FILE_PATH = os.path.join(LOG_FOLDER_PATH, 'logs.txt')
+
+if not os.path.isfile(LOG_FILE_PATH):
+    os.mkdir(LOG_FOLDER_PATH)
 
 
 def get_logger(tag: str) -> Logger:

@@ -83,6 +83,7 @@ class NounsFindingAgent:
         :param black_list: replies to be omitted from possible variants
         :return: text with the reply
         """
+<<<<<<< Updated upstream
 
         if not input_text:
             return None

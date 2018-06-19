@@ -46,7 +46,9 @@ def get_nouns(sentence: str) -> Set[str]:
         return set()
 
     words = word_tokenize(sentence)
+    print(words)
     tagged: Tuple[str, str] = pos_tag(words, lang='rus')
+    print(tagged)
 
     nouns = set()
     for word, tag in tagged:

@@ -49,7 +49,6 @@ def set_proxy() -> None:
 
 set_proxy()
 
-print(REPLY_AGENT.get_reply('/start', no_empty_reply=True))
 
 async def handle(request: web.Request) -> web.Response:
     """

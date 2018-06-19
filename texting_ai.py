@@ -446,8 +446,7 @@ class TextCallChecker:
             regex_strings = [
                 f'^{name}$',
                 f'^{name}[{punct_symbols_string}]',
-                f'[{punct_symbols_string}] {name}[{punct_symbols_string}]',
-                f'[{punct_symbols_string}] {name}$'
+                f'[{punct_symbols_string}] {name}\?'
             ]
 
             for regex_s in regex_strings:

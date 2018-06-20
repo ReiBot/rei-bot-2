@@ -130,7 +130,7 @@ class LearningAgent:
         :param save_file_name: name of a json file to write learned information
         """
 
-        self.pattern_delimiter = '.*'
+        self.pattern_delimiter = '.* '
 
         self.save_file_name = save_file_name
 

@@ -206,17 +206,16 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
         user_id = call.from_user.id
 
         if call.data == UP_VOTE:
-            is_right_message = True  # for assigning message as wrong or as right
             grading_message.up_vote(user_id)
         elif call.data == DOWN_VOTE:
-            is_right_message = False
             grading_message.down_vote(user_id)
 
+        grading_message.update_grade()
+
         # learning
-        if grading_message.update_grade() and grading_message.get_grade() != 0:
-            texting_ai.LEARNING_AGENT.learn(grading_message.input_message,
-                                            grading_message.reply_message,
-                                            is_right_message)
+        texting_ai.LEARNING_AGENT.learn(grading_message.input_message,
+                                        grading_message.reply_message,
+                                        grading_message.get_change_sign())
 
         # attaching keyboard to message
         keyboard = make_voting_keyboard(grading_message.get_likes_num(),

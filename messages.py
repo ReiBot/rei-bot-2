@@ -15,9 +15,15 @@ class GradableMessage:
     For storing information about grading message which is used for agent learning
     """
 
-    # attribute that represents 'grade' of the reply on message based on ratio of likes and dislikes
-    # where -1 is for dislikes > likes 0 is for equality and 1 is for likes > dislikes
+    # attribute that represents 'grade' of the reply on message
+    # based on ratio of likes and dislikes
+    # where -1 is for dislikes > likes
+    # 1 is for likes > dislikes
+    # 0 is when equal
     _grade: [-1, 0, 1] = 0
+
+    # 1 if grade was increased -1 otherwise
+    _change_sign: [-1, 1] = 0
 
     _likes_num: int = 0
     _dislikes_num: int = 0
@@ -64,7 +70,14 @@ class GradableMessage:
         else:
             self._grade = 0
 
-        return True if self._grade != old_grade else False
+        if old_grade < self._grade:
+            self._change_sign = 1
+        elif old_grade > self._grade:
+            self._change_sign = -1
+        else:
+            self._change_sign = 0
+
+        return self._change_sign != 0
 
     def up_vote(self, user_id: int) -> None:
         """
@@ -102,3 +115,10 @@ class GradableMessage:
         :return: grade
         """
         return self._grade
+
+    def get_change_sign(self) -> int:
+        """
+        Gets change sign
+        :return: change sign
+        """
+        return self._change_sign

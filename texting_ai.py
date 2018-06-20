@@ -431,11 +431,17 @@ class RatingLearningAgent(LearningAgent):
         json_manager.write(self.knowledge_base, self.save_file_name)
 
     def get_rated_replies(self, input_text: str) -> Tuple[Dict[str, int]]:
+        """
+        Gets rated replies on given input text
+        :param input_text: text message from user
+        :return: replies and corresponding rating
+        """
         result = dict()
         all_patterns = list(self.knowledge_base.keys())
         sentences = sent_tokenize(input_text)
         for sentence in sentences:
-            found_patterns = list(filter(lambda pattern: re.search(pattern, sentence), all_patterns))
+            found_patterns = list(filter(lambda pattern: re.search(pattern, sentence),
+                                         all_patterns))
             for found_pattern in found_patterns:
                 for reply, rating in self.knowledge_base[found_pattern].items():
                     result[reply] = rating
@@ -523,16 +529,24 @@ class RatingRandomReplyAgent(RandomReplyAgent):
     def get_rated_reply(self, rated_replies: Dict[str, int],
                         replies: List[str], black_list: List[str],
                         no_empty_reply: bool) -> Tuple[Optional[str]]:
+        """
+        Gets random reply from given rated and regular replies and all phrases
+        :param rated_replies: replies with rating
+        :param replies: replies without rating
+        :param black_list: replies that should not be chosen
+        :param no_empty_reply: flag that is True when there must be non-empty reply
+        :return: reply on None if it's not possible to get a reply
+        """
         possible_replies: List[str] = list()
         if rated_replies or replies:
             possible_replies = \
-                 list(set(filter(lambda x: x not in black_list, replies
-                                 + list(rated_replies.keys())
-                                 # adding one random phrase
-                                 + random.choices(list(filter(lambda x:
-                                                              not (replies and x in replies
-                                                                   or rated_replies and x in rated_replies),
-                                                              self._all_phrases))))))
+             list(set(filter(lambda x: x not in black_list, replies
+                             + list(rated_replies.keys())
+                             # adding one random phrase
+                             + random.choices(list(filter(lambda x:
+                                                          not (replies and x in replies
+                                                               or rated_replies and x in rated_replies),
+                                                          self._all_phrases))))))
         elif no_empty_reply:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 

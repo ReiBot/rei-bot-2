@@ -413,14 +413,14 @@ class RandomReplyAgent:
             LOGGER.error('wrong phrases path for RandomReplyAgent')
             return
 
-        self.all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self.max_weight = len(self.all_phrases)
+        self._all_phrases = list(json_manager.read(path_to_phrases).keys())
+        self._max_weight = len(self._all_phrases)
         # for multiplying weight of a given reply
-        self.given_reply_multiplier = 2
-        self.random_reply_divisor = 2
-        self.phrases_weights: Dict[str, int] = dict()
-        for phrase in self.all_phrases:
-            self.phrases_weights[phrase] = self.max_weight
+        self.__given_reply_multiplier = 2
+        self.__random_reply_divisor = 2
+        self._phrases_weights: Dict[str, int] = dict()
+        for phrase in self._all_phrases:
+            self._phrases_weights[phrase] = self._max_weight
 
     def get_reply(self, replies: List[str], black_list: List[str],
                   no_empty_reply: bool) -> Tuple[Optional[str]]:
@@ -434,11 +434,11 @@ class RandomReplyAgent:
         """
         possible_replies = replies + random.choices(list(filter(
             lambda x: x not in replies,
-            self.all_phrases)),
+            self._all_phrases)),
             k=1 if no_empty_reply else
             math.floor(len(replies) / 2)) \
             if replies else \
-            self.all_phrases if no_empty_reply else list()
+            self._all_phrases if no_empty_reply else list()
 
         if black_list:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
@@ -446,15 +446,15 @@ class RandomReplyAgent:
         if possible_replies:
             reply = random.choices(possible_replies, weights=list(map(
                 lambda phrase:
-                self.phrases_weights[phrase] * self.given_reply_multiplier if phrase in replies else
-                self.phrases_weights[phrase], possible_replies)))[0]
+                self._phrases_weights[phrase] * self.__given_reply_multiplier if phrase in replies else
+                self._phrases_weights[phrase], possible_replies)))[0]
         else:
             reply = None
 
         if reply:
-            self.phrases_weights[reply] -= 1
-            if self.phrases_weights[reply] == 0:
-                self.phrases_weights[reply] = self.max_weight
+            self._phrases_weights[reply] -= 1
+            if self._phrases_weights[reply] == 0:
+                self._phrases_weights[reply] = self._max_weight
 
         return reply,
 

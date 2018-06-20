@@ -357,10 +357,10 @@ class RatingLearningAgent(LearningAgent):
     Learning agent with rating system for replies
     """
 
-    def recreate_knowledge_base(self, path_to_old_base_file) -> None:
+    def __recreate_knowledge_base(self, path_to_base_file) -> None:
         """
-        recreating knowledge base from predecessor's base
-        :param path_to_old_base_file: path to the old base json file
+        recreates knowledge base from predecessor's base and writes it as json file
+        :param path_to_base_file: path to the new base json file
         :return: None
         """
 
@@ -368,7 +368,7 @@ class RatingLearningAgent(LearningAgent):
         init_good_reply_val = 5
         init_bad_reply_val = -5
 
-        old_base = json_manager.read(path_to_old_base_file)
+        old_base = self.knowledge_base
         new_knowledge_base: Dict[str, Dict[str, int]] = dict()
         for pattern, rules in old_base.items():
             if pattern not in new_knowledge_base:
@@ -379,8 +379,14 @@ class RatingLearningAgent(LearningAgent):
                 new_knowledge_base[pattern][reply] = init_bad_reply_val
         self.knowledge_base = new_knowledge_base
 
-    def __init__(self, save_file_name: str):
-        super().__init__(save_file_name)
+        json_manager.write(self.knowledge_base, path_to_base_file)
+
+    def __init__(self, save_file_name: str, predecessor_save_file: str = ""):
+        if not os.path.isfile(save_file_name) and os.path.isfile(predecessor_save_file):
+            super().__init__(predecessor_save_file)
+            self.__recreate_knowledge_base()
+        else:
+            super().__init__(save_file_name)
 
     def rating_learn(self, input_text: str, reply: str, right: bool) -> None:
         """

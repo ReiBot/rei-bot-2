@@ -32,7 +32,7 @@ def stem(word: str) -> str:
         LOGGER.error("input value is not a string")
         return None
 
-    return PARTICULAR_STEMMED_CASES.get(word, STEMMER.stem(word))
+    return PARTICULAR_STEMMED_CASES.get(word.lower(), STEMMER.stem(word))
 
 
 def get_nouns(sentence: str) -> Set[str]:

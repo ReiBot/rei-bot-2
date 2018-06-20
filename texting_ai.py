@@ -166,12 +166,10 @@ class LearningAgent:
         if not parts_of_speech:
             return None
 
-        end_symbol = ''
-        # is there an ending punctuation symbol?
-        if tagged[-1][1] == self._parts_of_speech['other']:
-            end_symbol = tagged[-1][0]
+        # is there an ending punctuation symbol
+        end_symbol = tagged[-1][0] if tagged[-1][1] == self._parts_of_speech['other'] else None
 
-        return f'(^|{self.pattern_delimiter}){self.pattern_delimiter.join(parts_of_speech)}({self.pattern_delimiter}|{self.pattern_delimiter.replace(" ", "")}\\' + '\\'.join(end_symbol) + ')'
+        return f'(^|{self.pattern_delimiter}){self.pattern_delimiter.join(parts_of_speech)}({self.pattern_delimiter}|' + (f'{self.pattern_delimiter.replace(" ", "")}' + '\\' + '\\'.join(end_symbol) if end_symbol else '') + ')'
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -227,7 +225,6 @@ class LearningAgent:
         """
 
         sentences = sent_tokenize(input_text)
-        
         patterns = self.knowledge_base.keys()
 
         replies = list()

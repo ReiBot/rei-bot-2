@@ -303,7 +303,7 @@ class AgentPipeline:
              kwargs.get('no_empty_reply', False))
         self._agent_adapters[RatingLearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
         self._agent_adapters[RatingRandomReplyAgent] = lambda **kwargs: (kwargs.get('rated_replies', None),
-                                                                         kwargs.get('replies', None),
+                                                                         kwargs.get('reply_variants', None),
                                                                          kwargs.get('black_list', None),
                                                                          kwargs.get('no_empty_reply', False))
 
@@ -348,6 +348,7 @@ class AgentPipeline:
         init_kwargs = {
             'reply': None,
             'reply_variants': list(),
+            'rated_replies': dict(),
             'input_text': input_text,
             'no_empty_reply': no_empty_reply,
             'black_list': list()
@@ -386,9 +387,9 @@ class RatingLearningAgent(LearningAgent):
         for pattern, rules in old_base.items():
             if pattern not in new_knowledge_base:
                 new_knowledge_base[pattern]: Dict[str, int] = dict()
-            for reply in rules['replies']:
+            for reply in rules.get('replies', []):
                 new_knowledge_base[pattern][reply] = init_good_reply_val
-            for reply in rules['black list']:
+            for reply in rules.get('black list', []):
                 new_knowledge_base[pattern][reply] = init_bad_reply_val
         self.knowledge_base = new_knowledge_base
 
@@ -425,7 +426,7 @@ class RatingLearningAgent(LearningAgent):
             knowledge = self.knowledge_base[pattern]
             knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
 
-            LOGGER.info(f'pattern {pattern} is learned with {"good" if right else "bad"} reply')
+            LOGGER.info(f'pattern {pattern} is learned with {"good" if right else "bad"} reply {reply} with rating {knowledge[reply]}')
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 

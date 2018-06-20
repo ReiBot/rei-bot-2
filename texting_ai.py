@@ -392,7 +392,7 @@ class RatingLearningAgent(LearningAgent):
             for reply in rules.get('black list', []):
                 new_knowledge_base[pattern][reply] = init_bad_reply_val
         self.knowledge_base = new_knowledge_base
-
+        self.save_file_name = path_to_base_file
         json_manager.write(self.knowledge_base, path_to_base_file)
 
     def __init__(self, save_file_name: str, predecessor_save_file: str = ""):
@@ -557,6 +557,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
             reply = None
 
         self._decrease_weight(reply)
+        LOGGER.debug(f'current weights {self._phrases_weights}')
 
         return reply,
 
@@ -565,7 +566,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 200
+    messages_period = 10
     # number of all messages that bot received
     messages_num = 0
 

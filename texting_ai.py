@@ -352,6 +352,57 @@ class AgentPipeline:
         return kwargs.get('reply', None)
 
 
+class RatedLearningAgent(LearningAgent):
+    """
+    Learning agent with rating system for replies
+    """
+    # initial values for replies from predecessor
+    __init_good_reply_val = 5
+    __init_bad_reply_val = -5
+
+    def __init__(self, save_file_name: str):
+        super().__init__(save_file_name)
+        if self.knowledge_base:
+            new_knowledge_base: Dict[str, Dict[str, int]] = dict()
+            for pattern, rules in self.knowledge_base.items():
+                if pattern not in new_knowledge_base:
+                    new_knowledge_base[pattern]: Dict[str, int] = dict()
+                for reply in rules['replies']:
+                    new_knowledge_base[pattern][reply] = self.__init_good_reply_val
+                for reply in rules['black list']:
+                    new_knowledge_base[pattern][reply] = self.__init_bad_reply_val
+            self.knowledge_base = new_knowledge_base
+
+            json_manager.write(self.knowledge_base, save_file_name)
+
+    def learn(self, input_text: str, reply: str, right: bool) -> None:
+        """
+        Learns a patterns made from inputs text and corresponding reply
+        :param input_text: text that the bot received
+        :param reply: reply that the bot gave
+        :param right: True if reply was right False if wrong
+        :return: None
+        """
+
+        sentences = sent_tokenize(input_text)
+
+        for sentence in sentences:
+            pattern = self._sentence_to_pattern(sentence)
+
+            if not pattern:
+                continue
+
+            if pattern not in self.knowledge_base:
+                self.knowledge_base[pattern] = dict()
+
+            knowledge = self.knowledge_base[pattern]
+            knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
+
+            LOGGER.info(f'pattern {pattern} is learned with {"good" if right else "bad"} reply')
+
+        json_manager.write(self.knowledge_base, self.save_file_name)
+
+
 class RandomReplyAgent:
     """
     Agent that chooses random replies from given ones
@@ -459,7 +510,7 @@ class TextCallChecker:
             regex_strings = [
                 f'^{name}$',
                 f'^{name}[{punct_symbols_string}]',
-                f'[{punct_symbols_string}] {name}\?'
+                f'[{punct_symbols_string}] {name}\\?'
             ]
 
             for regex_s in regex_strings:

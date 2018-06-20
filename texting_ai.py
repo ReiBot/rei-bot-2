@@ -277,7 +277,6 @@ class AgentPipeline:
 
         agent_type = type(kwargs.get('agent', None))
         # value to be updated in kwargs
-        LOGGER.debug(agent_type)
         result = self._kwargs_converter[agent_type](*(self._agent_callers[agent_type](**kwargs)),
                                                     kwargs)
 

@@ -352,32 +352,40 @@ class AgentPipeline:
         return kwargs.get('reply', None)
 
 
-class RatedLearningAgent(LearningAgent):
+class RatingLearningAgent(LearningAgent):
     """
     Learning agent with rating system for replies
     """
-    # initial values for replies from predecessor
-    __init_good_reply_val = 5
-    __init_bad_reply_val = -5
+
+    def recreate_knowledge_base(self, path_to_old_base_file) -> None:
+        """
+        recreating knowledge base from predecessor's base
+        :param path_to_old_base_file: path to the old base json file
+        :return: None
+        """
+
+        # initial values for replies from predecessor
+        init_good_reply_val = 5
+        init_bad_reply_val = -5
+
+        old_base = json_manager.read(path_to_old_base_file)
+        new_knowledge_base: Dict[str, Dict[str, int]] = dict()
+        for pattern, rules in old_base.items():
+            if pattern not in new_knowledge_base:
+                new_knowledge_base[pattern]: Dict[str, int] = dict()
+            for reply in rules['replies']:
+                new_knowledge_base[pattern][reply] = init_good_reply_val
+            for reply in rules['black list']:
+                new_knowledge_base[pattern][reply] = init_bad_reply_val
+        self.knowledge_base = new_knowledge_base
 
     def __init__(self, save_file_name: str):
         super().__init__(save_file_name)
-        if self.knowledge_base:
-            new_knowledge_base: Dict[str, Dict[str, int]] = dict()
-            for pattern, rules in self.knowledge_base.items():
-                if pattern not in new_knowledge_base:
-                    new_knowledge_base[pattern]: Dict[str, int] = dict()
-                for reply in rules['replies']:
-                    new_knowledge_base[pattern][reply] = self.__init_good_reply_val
-                for reply in rules['black list']:
-                    new_knowledge_base[pattern][reply] = self.__init_bad_reply_val
-            self.knowledge_base = new_knowledge_base
 
-            json_manager.write(self.knowledge_base, save_file_name)
-
-    def learn(self, input_text: str, reply: str, right: bool) -> None:
+    def rating_learn(self, input_text: str, reply: str, right: bool) -> None:
         """
         Learns a patterns made from inputs text and corresponding reply
+        by rating pairs of patterns and replies
         :param input_text: text that the bot received
         :param reply: reply that the bot gave
         :param right: True if reply was right False if wrong
@@ -402,6 +410,17 @@ class RatedLearningAgent(LearningAgent):
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
+    def get_rated_replies(self, input_text: str) -> List[Tuple[str, int]]:
+        result = list()
+        all_patterns = list(self.knowledge_base.keys())
+        sentences = sent_tokenize(input_text)
+        for sentence in sentences:
+            found_patterns = list(filter(lambda pattern: re.search(pattern, sentence), all_patterns))
+            for pattern in found_patterns:
+                result += list(self.knowledge_base[pattern].items())
+
+        return result
+
 
 class RandomReplyAgent:
     """
@@ -414,7 +433,7 @@ class RandomReplyAgent:
             return
 
         self._all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self._max_weight = len(self._all_phrases)
+        self._max_weight = 10
         # for multiplying weight of a given reply
         self.__given_reply_multiplier = 2
         self.__random_reply_divisor = 2

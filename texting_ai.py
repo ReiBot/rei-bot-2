@@ -166,7 +166,12 @@ class LearningAgent:
         if not parts_of_speech:
             return None
 
-        return self.pattern_delimiter.join(parts_of_speech)
+        end_symbol = ''
+        # is there an ending punctuation symbol?
+        if tagged[-1][1] == self._parts_of_speech['other']:
+            end_symbol = tagged[-1][0]
+
+        return f'(^|{self.pattern_delimiter}){self.pattern_delimiter.join(parts_of_speech)}({self.pattern_delimiter}|{self.pattern_delimiter.replace(" ", "")}\\' + '\\'.join(end_symbol) + ')'
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -221,22 +226,25 @@ class LearningAgent:
         :return: allowed and prohibited replies
         """
 
+        sentences = sent_tokenize(input_text)
+        
         patterns = self.knowledge_base.keys()
 
         replies = list()
         black_list = list()
 
         # for each known pattern check if the input matches
-        for pattern in patterns:
-            if re.search(pattern, input_text, re.I):
-                LOGGER.info(f'"{pattern}" pattern is found in "{input_text}" text')
+        for sentence in sentences:
+            for pattern in patterns:
+                if re.search(pattern, input_text, re.I):
+                    LOGGER.info(f'"{pattern}" pattern is found in "{sentence}" sentence')
 
-                # if there no replies for matched pattern but there are non-empty black list
-                # then add this information
-                if 'replies' in self.knowledge_base[pattern]:
-                    replies += self.knowledge_base[pattern]['replies']
-                if 'black list' in self.knowledge_base[pattern]:
-                    black_list += self.knowledge_base[pattern]['black list']
+                    # if there no replies for matched pattern but there are non-empty black list
+                    # then add this information
+                    if 'replies' in self.knowledge_base[pattern]:
+                        replies += self.knowledge_base[pattern]['replies']
+                    if 'black list' in self.knowledge_base[pattern]:
+                        black_list += self.knowledge_base[pattern]['black list']
 
         # removing replies from black list
         for wrong_reply in black_list:

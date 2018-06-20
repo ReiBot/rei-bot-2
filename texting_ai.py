@@ -277,6 +277,7 @@ class AgentPipeline:
 
         agent_type = type(kwargs.get('agent', None))
         # value to be updated in kwargs
+        LOGGER.debug(agent_type)
         result = self._kwargs_converter[agent_type](*(self._agent_callers[agent_type](**kwargs)),
                                                     kwargs)
 
@@ -301,6 +302,11 @@ class AgentPipeline:
             (kwargs.get('reply_variants', None),
              kwargs.get('black_list', None),
              kwargs.get('no_empty_reply', False))
+        self._agent_adapters[RatingLearningAgent] = lambda **kwargs: (kwargs.get('input_text', None),)
+        self._agent_adapters[RatingRandomReplyAgent] = lambda **kwargs: (kwargs.get('rated_replies', None),
+                                                                         kwargs.get('replies', None),
+                                                                         kwargs.get('black_list', None),
+                                                                         kwargs.get('no_empty_reply', False))
 
         # for calling agents' methods that process input message
         self._agent_callers: Dict[Type, 'function'] = dict()
@@ -310,6 +316,10 @@ class AgentPipeline:
             kwargs.get('agent', None).get_replies(*self._agent_adapters[LearningAgent](**kwargs))
         self._agent_callers[RandomReplyAgent] = lambda **kwargs: \
             kwargs.get('agent', None).get_reply(*self._agent_adapters[RandomReplyAgent](**kwargs))
+        self._agent_callers[RatingLearningAgent] = lambda **kwargs:\
+            kwargs.get('agent', None).get_rated_replies(*self._agent_adapters[RatingLearningAgent](**kwargs))
+        self._agent_callers[RatingRandomReplyAgent] = lambda **kwargs: \
+            kwargs.get('agent', None).get_rated_reply(*self._agent_adapters[RatingRandomReplyAgent](**kwargs))
 
         # for converting agent's output to kwargs parameter(s)
         self._kwargs_converter: Dict[Type, 'function'] = dict()
@@ -319,6 +329,10 @@ class AgentPipeline:
             {'reply_variants': kwargs['reply_variants'] + replies,
              'black_list': kwargs['black_list'] + black_list}
         self._kwargs_converter[RandomReplyAgent] = lambda reply, kwargs: \
+            {'reply': reply}
+        self._kwargs_converter[RatingLearningAgent] = lambda rated_replies, kwargs: \
+            {'rated_replies': rated_replies}
+        self._kwargs_converter[RatingRandomReplyAgent] = lambda reply, kwargs: \
             {'reply': reply}
 
     def get_reply(self, input_text: str, no_empty_reply: bool = False) -> Optional[str]:
@@ -384,7 +398,7 @@ class RatingLearningAgent(LearningAgent):
     def __init__(self, save_file_name: str, predecessor_save_file: str = ""):
         if not os.path.isfile(save_file_name) and os.path.isfile(predecessor_save_file):
             super().__init__(predecessor_save_file)
-            self.__recreate_knowledge_base()
+            self.__recreate_knowledge_base(save_file_name)
         else:
             super().__init__(save_file_name)
 
@@ -416,16 +430,17 @@ class RatingLearningAgent(LearningAgent):
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
-    def get_rated_replies(self, input_text: str) -> List[Tuple[str, int]]:
-        result = list()
+    def get_rated_replies(self, input_text: str) -> Tuple[Dict[str, int]]:
+        result = dict()
         all_patterns = list(self.knowledge_base.keys())
         sentences = sent_tokenize(input_text)
         for sentence in sentences:
             found_patterns = list(filter(lambda pattern: re.search(pattern, sentence), all_patterns))
-            for pattern in found_patterns:
-                result += list(self.knowledge_base[pattern].items())
+            for found_pattern in found_patterns:
+                for reply, rating in self.knowledge_base[found_pattern].items():
+                    result[reply] = rating
 
-        return result
+        return result,
 
 
 class RandomReplyAgent:
@@ -447,6 +462,13 @@ class RandomReplyAgent:
         for phrase in self._all_phrases:
             self._phrases_weights[phrase] = self._max_weight
 
+    def _decrease_weight(self, reply):
+        # decreasing weight of a chosen reply
+        if reply:
+            self._phrases_weights[reply] -= 1
+            if self._phrases_weights[reply] == 0:
+                self._phrases_weights[reply] = self._max_weight
+
     def get_reply(self, replies: List[str], black_list: List[str],
                   no_empty_reply: bool) -> Tuple[Optional[str]]:
         """
@@ -457,17 +479,27 @@ class RandomReplyAgent:
         as a returned value
         :return: one chosen reply or None
         """
-        possible_replies = replies + random.choices(list(filter(
-            lambda x: x not in replies,
-            self._all_phrases)),
-            k=1 if no_empty_reply else
-            math.floor(len(replies) / 2)) \
-            if replies else \
-            self._all_phrases if no_empty_reply else list()
+        if replies:
+            if no_empty_reply:
+                k = 1
+            else:
+                k = math.floor(len(replies) / 2)
 
+            # adding a random number of additional phrases
+            # depending on no_empty_reply parameter
+            possible_replies = replies + random.choices(list(filter(
+                lambda x: x not in replies,
+                self._all_phrases)),
+                k=k)
+        else:
+            possible_replies = self._all_phrases if no_empty_reply else list()
+
+        # omitting phrases from black list
         if black_list:
             possible_replies = list(filter(lambda x: x not in black_list, possible_replies))
 
+        # choosing the reply depending on how many times it was used before
+        # and if it is in replies
         if possible_replies:
             reply = random.choices(possible_replies, weights=list(map(
                 lambda phrase:
@@ -476,10 +508,41 @@ class RandomReplyAgent:
         else:
             reply = None
 
-        if reply:
-            self._phrases_weights[reply] -= 1
-            if self._phrases_weights[reply] == 0:
-                self._phrases_weights[reply] = self._max_weight
+        # decreasing weight of a chosen reply
+        self._decrease_weight(reply)
+
+        return reply,
+
+
+class RatingRandomReplyAgent(RandomReplyAgent):
+    """Agent that chooses reply for and input text randomly
+    and takes into account given rated replies"""
+    def __init__(self, path_to_phrases: str):
+        super().__init__(path_to_phrases)
+
+    def get_rated_reply(self, rated_replies: Dict[str, int],
+                        replies: List[str], black_list: List[str],
+                        no_empty_reply: bool) -> Tuple[Optional[str]]:
+        possible_replies: List[str] = list()
+        if rated_replies or replies:
+            possible_replies = \
+                 list(set(filter(lambda x: x not in black_list, replies
+                                 + list(rated_replies.keys())
+                                 # adding one random phrase
+                                 + random.choices(list(filter(lambda x:
+                                                              not (replies and x in replies
+                                                                   or rated_replies and x in rated_replies),
+                                                              self._all_phrases))))))
+        elif no_empty_reply:
+            possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
+
+        if possible_replies:
+            reply = random.choices(possible_replies, list(map(lambda x: rated_replies.get(x, 0)
+                                                              + self._phrases_weights.get(x, 0), possible_replies)))[0]
+        else:
+            reply = None
+
+        self._decrease_weight(reply)
 
         return reply,
 
@@ -554,19 +617,11 @@ class ConversationController:
     def _is_question(text) -> bool:
         return re.search(r'\?', text)
 
-    def __init__(self):
+    def __init__(self, agent_pipeline: AgentPipeline):
         self._messages_counter = MessagesCounter()
         self._call_checker = TextCallChecker()
 
-        agent_language_path = os.path.join('data', 'language')
-        learning_agent = LEARNING_AGENT
-        random_reply_agent = \
-            RandomReplyAgent(os.path.join(agent_language_path, 'sentences.json'))
-        nouns_finding_agent = \
-            NounsFindingAgent(os.path.join(agent_language_path, 'sentences.json'),
-                              os.path.join(agent_language_path, 'nouns.json'))
-        self._agents_pipeline = \
-            AgentPipeline(learning_agent, nouns_finding_agent, random_reply_agent)
+        self._agent_pipeline = agent_pipeline
 
     def proceed_input_message(self, input_text: str,
                               is_private: bool = False,
@@ -582,7 +637,7 @@ class ConversationController:
         no_empty_reply = \
             True if self._is_question(input_text) or is_call else False
         if is_call or is_private or self._messages_counter.count_and_check():
-            reply = self._agents_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
+            reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
                 self._messages_counter.reset()
         else:
@@ -591,5 +646,14 @@ class ConversationController:
         return reply
 
 
-LEARNING_AGENT = LearningAgent(os.path.join('data', 'learning_model.json'))
-CONVERSATION_CONTROLLER = ConversationController()
+AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
+RANDOM_REPLY_AGENT = RatingRandomReplyAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'))
+NOUNS_FINDING_AGENT = \
+            NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
+                              os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
+LEARNING_AGENT = RatingLearningAgent(os.path.join('data', 'rated_learning_model.json'),
+                                     os.path.join('data',
+                                                  'learning_model.json'))
+AGENTS_PIPELINE = \
+            AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT, RANDOM_REPLY_AGENT)
+CONVERSATION_CONTROLLER = ConversationController(AGENTS_PIPELINE)

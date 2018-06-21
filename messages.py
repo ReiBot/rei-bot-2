@@ -23,7 +23,7 @@ class GradableMessage:
     _grade: [-1, 0, 1] = 0
 
     # 1 if grade was increased -1 otherwise
-    _change_sign: [-1, 1] = 0
+    _change_difference: [-1, 1] = 0
 
     _likes_num: int = 0
     _dislikes_num: int = 0
@@ -70,14 +70,9 @@ class GradableMessage:
         else:
             self._grade = 0
 
-        if old_grade < self._grade:
-            self._change_sign = 1
-        elif old_grade > self._grade:
-            self._change_sign = -1
-        else:
-            self._change_sign = 0
+        self._change_difference = self._grade - old_grade
 
-        return self._change_sign != 0
+        return self._change_difference != 0
 
     def up_vote(self, user_id: int) -> None:
         """
@@ -116,9 +111,9 @@ class GradableMessage:
         """
         return self._grade
 
-    def get_change_sign(self) -> int:
+    def get_change_difference(self) -> int:
         """
         Gets change sign
         :return: change sign
         """
-        return self._change_sign
+        return self._change_difference

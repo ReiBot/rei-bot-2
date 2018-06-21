@@ -215,7 +215,7 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
         # learning
         texting_ai.LEARNING_AGENT.rating_learn(grading_message.input_message,
                                                grading_message.reply_message,
-                                               grading_message.get_change_sign() > 0)
+                                               grading_message.get_change_difference() > 0)
 
         # attaching keyboard to message
         keyboard = make_voting_keyboard(grading_message.get_likes_num(),

@@ -458,7 +458,7 @@ class RandomReplyAgent:
             return
 
         self._all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self._max_weight = 10
+        self._max_weight = 2
         # for multiplying weight of a given reply
         self.__given_reply_multiplier = 2
         self.__random_reply_divisor = 2
@@ -553,7 +553,10 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
         if possible_replies:
             reply = random.choices(possible_replies, list(map(lambda x: rated_replies.get(x, 0)
-                                                              + self._phrases_weights.get(x, 0), possible_replies)))[0]
+                                                              + self._phrases_weights.get(x, 0)
+                                                              if rated_replies.get(x, 0)
+                                                              + self._phrases_weights.get(x, 0) > 0 else 0,
+                                                              possible_replies)))[0]
         else:
             reply = None
 

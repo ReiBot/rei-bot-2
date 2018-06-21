@@ -7,6 +7,7 @@ import random
 import math
 import re
 from typing import List, Dict, Optional, Type, Tuple
+import time
 
 from nltk import pos_tag
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -16,6 +17,8 @@ import logger
 import text_processing
 
 LOGGER = logger.get_logger(__file__)
+
+random.seed(int(time.time()))
 
 
 class NounsFindingAgent:
@@ -469,7 +472,7 @@ class RandomReplyAgent:
     def _decrease_weight(self, reply):
         # decreasing weight of a chosen reply
         if reply:
-            self._phrases_weights[reply] //= 2
+            self._phrases_weights[reply] //= 4
             if self._phrases_weights[reply] < 1:
                 self._phrases_weights[reply] = self._max_weight
 
@@ -526,7 +529,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
     @staticmethod
     def __get_rated_weight(rating, weight):
-        rated_weight = int(round(rating*weight/4) + weight)
+        rated_weight = rating*weight//2 + weight
         return 0 if rated_weight < 0 else rated_weight
 
     def get_rated_reply(self, rated_replies: Dict[str, int],
@@ -570,7 +573,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 200
+    messages_period = 50
     # number of all messages that bot received
     messages_num = 0
 

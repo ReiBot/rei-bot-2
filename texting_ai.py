@@ -169,7 +169,7 @@ class LearningAgent:
         # is there an ending punctuation symbol
         end_symbol = tagged[-1][0] if tagged[-1][1] == self._parts_of_speech['other'] else None
 
-        return f'(^|{self.pattern_delimiter}){self.pattern_delimiter.join(parts_of_speech)}({self.pattern_delimiter}|' + (f'{self.pattern_delimiter.replace(" ", "")}' + '\\' + '\\'.join(end_symbol) if end_symbol else '') + ')'
+        return f'{self.pattern_delimiter.join(parts_of_speech)}'
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -438,13 +438,11 @@ class RatingLearningAgent(LearningAgent):
         """
         result = dict()
         all_patterns = list(self.knowledge_base.keys())
-        sentences = sent_tokenize(input_text)
-        for sentence in sentences:
-            found_patterns = list(filter(lambda pattern: re.search(pattern, sentence),
-                                         all_patterns))
-            for found_pattern in found_patterns:
-                for reply, rating in self.knowledge_base[found_pattern].items():
-                    result[reply] = rating
+        found_patterns = list(filter(lambda pattern: re.search(pattern, input_text, re.I),
+                                     all_patterns))
+        for found_pattern in found_patterns:
+            for reply, rating in self.knowledge_base[found_pattern].items():
+                result[reply] = rating
 
         return result,
 
@@ -460,7 +458,7 @@ class RandomReplyAgent:
             return
 
         self._all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self._max_weight = 10
+        self._max_weight = 1024
         # for multiplying weight of a given reply
         self.__given_reply_multiplier = 2
         self.__random_reply_divisor = 2
@@ -471,8 +469,8 @@ class RandomReplyAgent:
     def _decrease_weight(self, reply):
         # decreasing weight of a chosen reply
         if reply:
-            self._phrases_weights[reply] -= 1
-            if self._phrases_weights[reply] == 0:
+            self._phrases_weights[reply] //= 2
+            if self._phrases_weights[reply] < 1:
                 self._phrases_weights[reply] = self._max_weight
 
     def get_reply(self, replies: List[str], black_list: List[str],
@@ -526,6 +524,11 @@ class RatingRandomReplyAgent(RandomReplyAgent):
     def __init__(self, path_to_phrases: str):
         super().__init__(path_to_phrases)
 
+    @staticmethod
+    def __get_rated_weight(rating, weight):
+        rated_weight = int(round(rating*weight/2) + weight)
+        return 0 if rated_weight < 0 else rated_weight
+
     def get_rated_reply(self, rated_replies: Dict[str, int],
                         replies: List[str], black_list: List[str],
                         no_empty_reply: bool) -> Tuple[Optional[str]]:
@@ -551,13 +554,14 @@ class RatingRandomReplyAgent(RandomReplyAgent):
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 
         if possible_replies:
-            reply = random.choices(possible_replies, list(map(lambda x: rated_replies.get(x, 0)
-                                                              + self._phrases_weights.get(x, 0), possible_replies)))[0]
+            reply = random.choices(possible_replies, list(map(lambda x:
+                                                              self.__get_rated_weight(rated_replies.get(x, 0),
+                                                                                      self._phrases_weights.get(x, 0)),
+                                                              possible_replies)))[0]
         else:
             reply = None
 
         self._decrease_weight(reply)
-        LOGGER.debug(f'current weights {self._phrases_weights}')
 
         return reply,
 
@@ -566,7 +570,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 10
+    messages_period = 200
     # number of all messages that bot received
     messages_num = 0
 

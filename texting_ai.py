@@ -169,7 +169,7 @@ class LearningAgent:
         # is there an ending punctuation symbol
         end_symbol = tagged[-1][0] if tagged[-1][1] == self._parts_of_speech['other'] else None
 
-        return f'(^|{self.pattern_delimiter}){self.pattern_delimiter.join(parts_of_speech)}({self.pattern_delimiter}|' + (f'{self.pattern_delimiter.replace(" ", "")}' + '\\' + '\\'.join(end_symbol) if end_symbol else '') + ')'
+        return f'{self.pattern_delimiter.join(parts_of_speech)}'
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -438,13 +438,11 @@ class RatingLearningAgent(LearningAgent):
         """
         result = dict()
         all_patterns = list(self.knowledge_base.keys())
-        sentences = sent_tokenize(input_text)
-        for sentence in sentences:
-            found_patterns = list(filter(lambda pattern: re.search(pattern, sentence),
-                                         all_patterns))
-            for found_pattern in found_patterns:
-                for reply, rating in self.knowledge_base[found_pattern].items():
-                    result[reply] = rating
+        found_patterns = list(filter(lambda pattern: re.search(pattern, input_text, re.I),
+                                     all_patterns))
+        for found_pattern in found_patterns:
+            for reply, rating in self.knowledge_base[found_pattern].items():
+                result[reply] = rating
 
         return result,
 
@@ -539,14 +537,17 @@ class RatingRandomReplyAgent(RandomReplyAgent):
         """
         possible_replies: List[str] = list()
         if rated_replies or replies:
+            random_replies = list(filter(lambda x:
+                                         not (replies and x in replies
+                                              or rated_replies and x in rated_replies),
+                                         self._all_phrases))
+            random_replies.sort(key=lambda x: self._phrases_weights[x],
+                                                                  reverse=True)
             possible_replies = \
              list(set(filter(lambda x: x not in black_list, replies
                              + list(rated_replies.keys())
-                             # adding one random phrase
-                             + random.choices(list(filter(lambda x:
-                                                          not (replies and x in replies
-                                                               or rated_replies and x in rated_replies),
-                                                          self._all_phrases))))))
+                             # adding one phrase with the most weight
+                             + [random_replies[0]])))
         elif no_empty_reply:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 
@@ -566,7 +567,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 10
+    messages_period = 200
     # number of all messages that bot received
     messages_num = 0
 

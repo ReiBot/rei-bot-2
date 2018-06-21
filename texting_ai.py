@@ -558,7 +558,6 @@ class RatingRandomReplyAgent(RandomReplyAgent):
             reply = None
 
         self._decrease_weight(reply)
-        LOGGER.debug(f'current weights {self._phrases_weights}')
 
         return reply,
 

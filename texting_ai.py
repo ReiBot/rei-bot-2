@@ -444,6 +444,7 @@ class RatingLearningAgent(LearningAgent):
         found_patterns = list(filter(lambda pattern: re.search(pattern, input_text, re.I),
                                      all_patterns))
         for found_pattern in found_patterns:
+            LOGGER.info(f'pattern {found_pattern} is found in text {input_text}')
             for reply, rating in self.knowledge_base[found_pattern].items():
                 result[reply] = rating
 
@@ -461,7 +462,7 @@ class RandomReplyAgent:
             return
 
         self._all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self._max_weight = 1024
+        self._max_weight = 6000
         # for multiplying weight of a given reply
         self.__given_reply_multiplier = 2
         self.__random_reply_divisor = 2
@@ -472,8 +473,8 @@ class RandomReplyAgent:
     def _decrease_weight(self, reply):
         # decreasing weight of a chosen reply
         if reply:
-            self._phrases_weights[reply] //= 4
-            if self._phrases_weights[reply] < 1:
+            self._phrases_weights[reply] = round(math.sqrt(self._phrases_weights[reply]))
+            if self._phrases_weights[reply] < 2:
                 self._phrases_weights[reply] = self._max_weight
 
     def get_reply(self, replies: List[str], black_list: List[str],
@@ -529,7 +530,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
     @staticmethod
     def __get_rated_weight(rating, weight):
-        rated_weight = rating*weight//2 + weight
+        rated_weight = rating*weight//4 + weight
         return 0 if rated_weight < 0 else rated_weight
 
     def get_rated_reply(self, rated_replies: Dict[str, int],

@@ -446,7 +446,7 @@ class RatingLearningAgent(LearningAgent):
         for found_pattern in found_patterns:
             LOGGER.info(f'pattern {found_pattern} is found in text {input_text}')
             for reply, rating in self.knowledge_base[found_pattern].items():
-                result[reply] = rating
+                result[reply] = result.get(reply, 0) + rating
 
         return result,
 

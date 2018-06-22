@@ -530,7 +530,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
     @staticmethod
     def __get_rated_weight(rating, weight):
-        rated_weight = rating*weight//4 + weight
+        rated_weight = int(rating*weight/10 + weight)
         return 0 if rated_weight < 0 else rated_weight
 
     def get_rated_reply(self, rated_replies: Dict[str, int],

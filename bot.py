@@ -13,7 +13,7 @@ from aiohttp import web
 
 import logger
 import messages
-import texting_ai
+import agents
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -92,7 +92,7 @@ def command_reply(message: telebot.types.Message) -> None:
 
     is_private = message.chat.type == PRIVATE_MESSAGE
     reply_message(message,
-                  texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
+                  agents.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
                                                                            is_private, True),
                   not is_private)
 
@@ -110,7 +110,7 @@ def text_reply(message: telebot.types.Message) -> None:
     is_reply = check_reply(BOT.get_me().id, message)
     as_reply = True if not is_private else False
 
-    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private, is_reply)
+    reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private, is_reply)
     if reply:
         reply_message(message, reply, as_reply)
 
@@ -124,8 +124,8 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     """
     if message.reply_to_message:
         return message.reply_to_message.from_user.id == _id
-    else:
-        return False
+
+    return False
 
 
 def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeyboardMarkup:
@@ -216,9 +216,9 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
         grading_message.update_grade()
 
         # learning
-        texting_ai.LEARNING_AGENT.rating_learn(grading_message.input_message,
-                                               grading_message.reply_message,
-                                               grading_message.get_change_difference() > 0)
+        agents.LEARNING_AGENT.rating_learn(grading_message.input_message,
+                                           grading_message.reply_message,
+                                           grading_message.get_change_difference() > 0)
 
         # attaching keyboard to message
         keyboard = make_voting_keyboard(grading_message.get_likes_num(),

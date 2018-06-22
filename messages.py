@@ -15,12 +15,15 @@ class GradableMessage:
     For storing information about grading message which is used for agent learning
     """
 
+    # -1 is for dislikes > likes
+    _negative_grade = -1
+    # 1 is for likes > dislikes
+    _positive_grade = 1
+    # 0 is when equal
+    _neutral_grade = 0
     # attribute that represents 'grade' of the reply on message
     # based on ratio of likes and dislikes
-    # where -1 is for dislikes > likes
-    # 1 is for likes > dislikes
-    # 0 is when equal
-    _grade: [-1, 0, 1] = 0
+    _grade: [_negative_grade, _neutral_grade, _positive_grade] = 0
 
     # 1 if grade was increased -1 otherwise
     _change_difference: [-1, 1] = 0
@@ -64,11 +67,11 @@ class GradableMessage:
         """
         old_grade = self._grade
         if self._likes_num > self._dislikes_num:
-            self._grade = 1
+            self._grade = self._positive_grade
         elif self._likes_num < self._dislikes_num:
-            self._grade = -1
+            self._grade = self._negative_grade
         else:
-            self._grade = 0
+            self._grade = self._neutral_grade
 
         self._change_difference = self._grade - old_grade
 

@@ -68,7 +68,7 @@ class NounsFindingAgent:
                     black_list: Optional[List[str]] = None) -> Tuple[List[str]]:
         """
         Returns possible text outputs by
-        search known nouns in the input text
+        searching known nouns in the input text
         and giving predefined phrases as a reply
         :param input_text: text containing natural language
         :param black_list: replies to be omitted from possible variants
@@ -138,7 +138,7 @@ class LearningAgent:
             self.knowledge_base: Dict[str, Dict[str, List[str]]] = dict()
             json_manager.write(self.knowledge_base, save_file_name)
 
-    def _sentence_to_pattern(self, sentence: str) -> Optional[str]:
+    def _make_pattern_from_sentence(self, sentence: str) -> Optional[str]:
         """
         Makes regex pattern out of sentence
         by getting all nouns, verbs and personal pronouns
@@ -163,9 +163,6 @@ class LearningAgent:
         # is there anything to make pattern from?
         if not parts_of_speech:
             return None
-
-        # is there an ending punctuation symbol
-        end_symbol = tagged[-1][0] if tagged[-1][1] == self._parts_of_speech['other'] else None
 
         return f'{self.pattern_delimiter.join(parts_of_speech)}'
 
@@ -337,7 +334,7 @@ class AgentPipeline:
         Passes arguments through each of agents and
         returns reply on input text
         :param input_text: input text
-        :param no_empty_reply: flag that is True when non-empty reply
+        :param no_empty_reply: flag that indicates must there be a mandatory non-empty reply or not
         is mandatory and False otherwise
         :return: text reply on input text or None if there are no reply on given input
         """
@@ -369,6 +366,13 @@ class RatingLearningAgent(LearningAgent):
     Learning agent with rating system for replies
     """
 
+    def __init__(self, save_file_name: str, predecessor_save_file: str = ""):
+        if not os.path.isfile(save_file_name) and os.path.isfile(predecessor_save_file):
+            super().__init__(predecessor_save_file)
+            self.__recreate_knowledge_base(save_file_name)
+        else:
+            super().__init__(save_file_name)
+
     def __recreate_knowledge_base(self, path_to_base_file) -> None:
         """
         recreates knowledge base from predecessor's base and writes it as json file
@@ -392,13 +396,6 @@ class RatingLearningAgent(LearningAgent):
         self.knowledge_base = new_knowledge_base
         self.save_file_name = path_to_base_file
         json_manager.write(self.knowledge_base, path_to_base_file)
-
-    def __init__(self, save_file_name: str, predecessor_save_file: str = ""):
-        if not os.path.isfile(save_file_name) and os.path.isfile(predecessor_save_file):
-            super().__init__(predecessor_save_file)
-            self.__recreate_knowledge_base(save_file_name)
-        else:
-            super().__init__(save_file_name)
 
     def rating_learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -465,8 +462,12 @@ class RandomReplyAgent:
         for phrase in self._all_phrases:
             self._phrases_weights[phrase] = self._max_weight
 
-    def _decrease_weight(self, reply):
-        # decreasing weight of a chosen reply
+    def _decrease_weight(self, reply) -> None:
+        """
+        Decreases weight of a phrase that was used as a reply last time
+        :param reply: reply phrase
+        :return: None
+        """
         if reply:
             self._phrases_weights[reply] = round(math.sqrt(self._phrases_weights[reply]))
             if self._phrases_weights[reply] < 2:
@@ -490,10 +491,9 @@ class RandomReplyAgent:
 
             # adding a random number of additional phrases
             # depending on no_empty_reply parameter
-            possible_replies = replies + random.choices(list(filter(
-                lambda x: x not in replies,
-                self._all_phrases)),
-                k=k)
+            random_replies = random.choices(list(filter(lambda x: x not in replies,
+                                                        self._all_phrases)), k=k)
+            possible_replies = replies + random_replies
         else:
             possible_replies = self._all_phrases if no_empty_reply else list()
 
@@ -539,7 +539,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
         :param rated_replies: replies with rating
         :param replies: replies without rating
         :param black_list: replies that should not be chosen
-        :param no_empty_reply: flag that is True when there must be non-empty reply
+        :param no_empty_reply: flag that indicates must there be a mandatory non-empty reply or not
         :return: reply on None if it's not possible to get a reply
         """
         possible_replies: List[str] = list()
@@ -561,10 +561,11 @@ class RatingRandomReplyAgent(RandomReplyAgent):
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 
         if possible_replies:
-            reply = random.choices(possible_replies, list(map(lambda x:
-                                                              self.__get_rated_weight(rated_replies.get(x, 0),
-                                                                                      self._phrases_weights.get(x, 0)),
-                                                              possible_replies)))[0]
+            reply = random.choices(possible_replies,
+                                   list(map(lambda x:
+                                            self.__get_rated_weight(rated_replies.get(x, 0),
+                                            self._phrases_weights.get(x, 0)),
+                                            possible_replies)))[0]
         else:
             reply = None
 
@@ -602,12 +603,12 @@ class TextCallChecker:
     Checks if the text contains the calling construction
     """
     def __init__(self):
-        self.names = [
+        self.names = frozenset([
             'рей',
             'аянами',
             'рей аянами',
             'аянами рей'
-        ]
+        ])
 
     def check(self, text) -> bool:
         """
@@ -639,15 +640,15 @@ class ConversationController:
     Controls how bot should reply on a given message depending on its source
     """
 
-    @staticmethod
-    def _is_question(text) -> bool:
-        return True if re.search(r'\?', text) else False
-
     def __init__(self, agent_pipeline: AgentPipeline):
         self._messages_counter = MessagesCounter()
         self._call_checker = TextCallChecker()
 
         self._agent_pipeline = agent_pipeline
+
+    @staticmethod
+    def _is_question(text) -> bool:
+        return True if re.search(r'\?', text) else False
 
     def proceed_input_message(self, input_text: str,
                               is_private: bool = False,
@@ -661,27 +662,13 @@ class ConversationController:
         :return: reply on message or None
         """
         is_call = is_call or self._call_checker.check(input_text)
-        no_empty_reply = \
-            True if self._is_question(input_text) and (is_call or is_private) else False
+        no_empty_reply = True if self._is_question(input_text) and (is_call or is_private) else False
 
         if is_call or is_private or self._messages_counter.count_and_check():
             reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
                 self._messages_counter.reset()
-        else:
-            reply = None
 
-        return reply
+            return reply
 
-
-AGENT_LANGUAGE_PATH = os.path.join('data', 'language')
-RANDOM_REPLY_AGENT = RatingRandomReplyAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'))
-NOUNS_FINDING_AGENT = \
-            NounsFindingAgent(os.path.join(AGENT_LANGUAGE_PATH, 'sentences.json'),
-                              os.path.join(AGENT_LANGUAGE_PATH, 'nouns.json'))
-LEARNING_AGENT = RatingLearningAgent(os.path.join('data', 'rated_learning_model.json'),
-                                     os.path.join('data',
-                                                  'learning_model.json'))
-AGENTS_PIPELINE = \
-            AgentPipeline(LEARNING_AGENT, NOUNS_FINDING_AGENT, RANDOM_REPLY_AGENT)
-CONVERSATION_CONTROLLER = ConversationController(AGENTS_PIPELINE)
+        return None

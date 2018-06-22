@@ -6,7 +6,7 @@ import os.path
 from typing import List, Dict
 
 import json_manager
-import texting_ai
+import agents
 
 
 def test_reply_agent(agent_function: "agent's function to process input message",
@@ -39,7 +39,7 @@ def test_reply_agent(agent_function: "agent's function to process input message"
 TEST_NUMBERS = [1, 0, 2]
 
 for test_n in TEST_NUMBERS:
-    for agent_f in [texting_ai.CONVERSATION_CONTROLLER.proceed_input_message]:
+    for agent_f in [agents.CONVERSATION_CONTROLLER.proceed_input_message]:
         test_reply_agent(agent_f,
                          os.path.join('data', 'tests', f'test{str(test_n)}.txt'),
                          test_output_file_name=f'test_output_CONVERSATION_CONTROLLER_n_{str(test_n)}.txt')

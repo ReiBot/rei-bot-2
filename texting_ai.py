@@ -121,12 +121,7 @@ class LearningAgent:
                 and tagged_words[-1] != punctuation_symbols[0]:
             return False
 
-        # are there any connecting words (союзы)?
-        connecting_words = \
-            list(filter(lambda tagged_word: tagged_word[1]
-                        == self._parts_of_speech['connecting words'],
-                        tagged_words))
-        return False if connecting_words else True
+        return True
 
     def __init__(self, save_file_name: str):
         """
@@ -462,7 +457,7 @@ class RandomReplyAgent:
             return
 
         self._all_phrases = list(json_manager.read(path_to_phrases).keys())
-        self._max_weight = 6000
+        self._max_weight = 1024
         # for multiplying weight of a given reply
         self.__given_reply_multiplier = 2
         self.__random_reply_divisor = 2
@@ -530,7 +525,10 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
     @staticmethod
     def __get_rated_weight(rating, weight):
-        rated_weight = int(rating*weight/10 + weight)
+        if rating >= 0:
+            rated_weight = round(math.log(rating + math.e) * weight)
+        else:
+            rated_weight = round(weight * 4 ** rating)
         return 0 if rated_weight < 0 else rated_weight
 
     def get_rated_reply(self, rated_replies: Dict[str, int],
@@ -545,15 +543,20 @@ class RatingRandomReplyAgent(RandomReplyAgent):
         :return: reply on None if it's not possible to get a reply
         """
         possible_replies: List[str] = list()
-        if rated_replies or replies:
+        if (rated_replies or replies) and (
+                # if there are no rated replies with positive rating
+                # then there must be regular replies
+                list(filter(lambda rated_reply: rated_reply[1] >= 0,
+                            rated_replies.items())) or replies):
             possible_replies = \
              list(set(filter(lambda x: x not in black_list, replies
                              + list(rated_replies.keys())
-                             # adding one random phrase
+                             # adding one or zero random phrases
                              + random.choices(list(filter(lambda x:
                                                           not (replies and x in replies
                                                                or rated_replies and x in rated_replies),
-                                                          self._all_phrases))))))
+                                                          self._all_phrases))) if random.randint(0, 1) == 0 else list())
+                      ))
         elif no_empty_reply:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 
@@ -574,7 +577,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 50
+    messages_period = 30
     # number of all messages that bot received
     messages_num = 0
 
@@ -638,7 +641,7 @@ class ConversationController:
 
     @staticmethod
     def _is_question(text) -> bool:
-        return re.search(r'\?', text)
+        return True if re.search(r'\?', text) else False
 
     def __init__(self, agent_pipeline: AgentPipeline):
         self._messages_counter = MessagesCounter()
@@ -650,7 +653,8 @@ class ConversationController:
                               is_private: bool = False,
                               is_call: bool = False) -> Optional[str]:
         """
-        data flow when the message is received
+        chooses parameters for agent pipeline depending on
+        message source type (private or group) and message content
         :param input_text: text of the message
         :param is_private: is message private?
         :param is_call: does message contains calling construction?
@@ -658,7 +662,8 @@ class ConversationController:
         """
         is_call = is_call or self._call_checker.check(input_text)
         no_empty_reply = \
-            True if self._is_question(input_text) or is_call else False
+            True if self._is_question(input_text) and (is_call or is_private) else False
+
         if is_call or is_private or self._messages_counter.count_and_check():
             reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:

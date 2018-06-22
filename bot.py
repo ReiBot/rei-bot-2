@@ -110,7 +110,7 @@ def text_reply(message: telebot.types.Message) -> None:
     is_reply = check_reply(BOT.get_me().id, message)
     as_reply = True if not is_private else False
 
-    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private or is_reply)
+    reply = texting_ai.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private, is_reply)
     if reply:
         reply_message(message, reply, as_reply)
 
@@ -122,7 +122,10 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     :param message: message to check
     :return: True if message is a reply False otherwise
     """
-    return message.reply_to_message and message.reply_to_message.from_user.id == _id
+    if message.reply_to_message:
+        return message.reply_to_message.from_user.id == _id
+    else:
+        return False
 
 
 def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeyboardMarkup:

@@ -192,6 +192,9 @@ class LearningAgent:
                     patterns.append(self.pattern_delimiter.join(sub_sentence))
                 sub_sentence = list()
 
+        if sub_sentence:
+            patterns.append(self.pattern_delimiter.join(sub_sentence))
+
         return patterns
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:

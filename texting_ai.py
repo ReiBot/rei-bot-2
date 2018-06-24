@@ -567,11 +567,12 @@ class RatingRandomReplyAgent(RandomReplyAgent):
         :return: reply on None if it's not possible to get a reply
         """
         possible_replies: List[str] = list()
-        if (rated_replies or replies) and (
-                # if there are no rated replies with positive rating
-                # then there must be regular replies
-                list(filter(lambda rated_reply: rated_reply[1] >= 0,
-                            rated_replies.items())) or replies):
+
+        # if there are no rated replies with positive rating
+        # then there must be regular replies
+        if list(filter(lambda rated_reply: rated_reply[1] >= 0,
+                       rated_replies.items())) or list(filter(lambda reply: reply not in rated_replies.keys(),
+                                                              replies)):
             possible_replies = \
              list(set(filter(lambda x: x not in black_list, replies
                              + list(rated_replies.keys())

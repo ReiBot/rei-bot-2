@@ -164,7 +164,35 @@ class LearningAgent:
         if not parts_of_speech:
             return None
 
-        return f'{self.pattern_delimiter.join(parts_of_speech)}'
+        return self.pattern_delimiter.join(parts_of_speech)
+
+    def _make_patterns_from_sentence(self, sentence: str) -> List[str]:
+        """
+        Makes regex patterns out of sentence
+        by splitting sentence into parts,
+        getting all nouns, verbs and personal pronouns out of each one
+        and joining them into one string
+        :param sentence: input sentence
+        :return: regex string or None if it's impossible to make one
+        """
+
+        patterns = list()
+
+        tagged = pos_tag(word_tokenize(sentence), lang='rus')
+
+        # splitting sentence into parts and making a pattern out of each one
+        sub_sentence = list()
+        for i, tagged_word in enumerate(tagged):
+            word, tag = tagged_word
+            if tag in [self._parts_of_speech['noun'], self._parts_of_speech['verb'],
+                       self._parts_of_speech['personal pronoun']]:
+                sub_sentence.append(text_processing.stem(word))
+            elif tag in [self._parts_of_speech['connecting words'], self._parts_of_speech['other']]:
+                if sub_sentence:
+                    patterns.append(self.pattern_delimiter.join(sub_sentence))
+                sub_sentence = list()
+
+        return patterns
 
     def learn(self, input_text: str, reply: str, right: bool) -> None:
         """
@@ -185,29 +213,27 @@ class LearningAgent:
         # each sentence in the text is converted to regex pattern and the information
         # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
-            pattern = self._make_pattern_from_sentence(sentence)
+            patterns = self._make_patterns_from_sentence(sentence)
 
-            if not pattern:
-                continue
+            for pattern in patterns:
+                if right:
+                    LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
+                else:
+                    LOGGER.info(f'"{pattern}" is learned with prohibited reply "{reply}"')
 
-            if right:
-                LOGGER.info(f'"{pattern}" is learned with reply "{reply}"')
-            else:
-                LOGGER.info(f'"{pattern}" is learned with prohibited reply "{reply}"')
+                if pattern not in self.knowledge_base:
+                    self.knowledge_base[pattern] = dict()
+                knowledge = self.knowledge_base[pattern]
 
-            if pattern not in self.knowledge_base:
-                self.knowledge_base[pattern] = dict()
-            knowledge = self.knowledge_base[pattern]
+                if key not in knowledge:
+                    knowledge[key] = list()
 
-            if key not in knowledge:
-                knowledge[key] = list()
+                if reply not in knowledge[key]:
+                    knowledge[key].append(reply)
 
-            if reply not in knowledge[key]:
-                knowledge[key].append(reply)
-
-            if other_key in knowledge and reply in knowledge[other_key]:
-                # remove ALL occurrences of reply
-                knowledge[other_key] = list(filter(lambda a: a != reply, knowledge[other_key]))
+                if other_key in knowledge and reply in knowledge[other_key]:
+                    # remove ALL occurrences of reply
+                    knowledge[other_key] = list(filter(lambda a: a != reply, knowledge[other_key]))
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
@@ -410,18 +436,16 @@ class RatingLearningAgent(LearningAgent):
         sentences = sent_tokenize(input_text)
 
         for sentence in sentences:
-            pattern = self._make_pattern_from_sentence(sentence)
+            patterns = self._make_patterns_from_sentence(sentence)
 
-            if not pattern:
-                continue
+            for pattern in patterns:
+                if pattern not in self.knowledge_base:
+                    self.knowledge_base[pattern] = dict()
 
-            if pattern not in self.knowledge_base:
-                self.knowledge_base[pattern] = dict()
+                knowledge = self.knowledge_base[pattern]
+                knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
 
-            knowledge = self.knowledge_base[pattern]
-            knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
-
-            LOGGER.info(f'pattern {pattern} is learned with reply {reply} with rating {knowledge[reply]}')
+                LOGGER.info(f'pattern {pattern} is learned with reply {reply} with rating {knowledge[reply]}')
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 

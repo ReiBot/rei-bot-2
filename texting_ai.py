@@ -421,7 +421,7 @@ class RatingLearningAgent(LearningAgent):
             knowledge = self.knowledge_base[pattern]
             knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
 
-            LOGGER.info(f'pattern {pattern} is learned with {"good" if right else "bad"} reply {reply} with rating {knowledge[reply]}')
+            LOGGER.info(f'pattern {pattern} is learned with reply {reply} with rating {knowledge[reply]}')
 
         json_manager.write(self.knowledge_base, self.save_file_name)
 
@@ -554,9 +554,10 @@ class RatingRandomReplyAgent(RandomReplyAgent):
                              # adding one or zero random phrases
                              + random.choices(list(filter(lambda x:
                                                           not (replies and x in replies
-                                                               or rated_replies and x in rated_replies),
-                                                          self._all_phrases))) if random.randint(0, 1) == 0 else list())
-                      ))
+                                                               or rated_replies and x in rated_replies or black_list
+                                                               and x in black_list),
+                                                          + self._all_phrases))) if no_empty_reply or
+                                                                random.randint(0, 1) == 0 else list())))
         elif no_empty_reply:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 

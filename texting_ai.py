@@ -185,7 +185,7 @@ class LearningAgent:
         # each sentence in the text is converted to regex pattern and the information
         # about right/wrong reply is added to knowledge base with this pattern as key
         for sentence in sentences:
-            pattern = self._sentence_to_pattern(sentence)
+            pattern = self._make_pattern_from_sentence(sentence)
 
             if not pattern:
                 continue
@@ -410,7 +410,7 @@ class RatingLearningAgent(LearningAgent):
         sentences = sent_tokenize(input_text)
 
         for sentence in sentences:
-            pattern = self._sentence_to_pattern(sentence)
+            pattern = self._make_pattern_from_sentence(sentence)
 
             if not pattern:
                 continue

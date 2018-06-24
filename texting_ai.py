@@ -426,13 +426,13 @@ class RatingLearningAgent(LearningAgent):
         self.save_file_name = path_to_base_file
         json_manager.write(self.knowledge_base, path_to_base_file)
 
-    def rating_learn(self, input_text: str, reply: str, right: bool) -> None:
+    def rating_learn(self, input_text: str, reply: str, rating_change: int) -> None:
         """
         Learns a patterns made from inputs text and corresponding reply
         by rating pairs of patterns and replies
         :param input_text: text that the bot received
         :param reply: reply that the bot gave
-        :param right: True if reply was right False if wrong
+        :param rating_change: how much rating should be increased or decreased
         :return: None
         """
 
@@ -446,7 +446,7 @@ class RatingLearningAgent(LearningAgent):
                     self.knowledge_base[pattern] = dict()
 
                 knowledge = self.knowledge_base[pattern]
-                knowledge[reply] = knowledge.get(reply, 0) + (1 if right else -1)
+                knowledge[reply] = knowledge.get(reply, 0) + rating_change
 
                 LOGGER.info(f'pattern {pattern} is learned with reply {reply} with rating {knowledge[reply]}')
 

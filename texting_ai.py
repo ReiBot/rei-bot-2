@@ -556,7 +556,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
                                                           not (replies and x in replies
                                                                or rated_replies and x in rated_replies or black_list
                                                                and x in black_list),
-                                                          + self._all_phrases))) if no_empty_reply or
+                                                          self._all_phrases))) if no_empty_reply or
                                                                 random.randint(0, 1) == 0 else list())))
         elif no_empty_reply:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))

@@ -93,7 +93,7 @@ def command_reply(message: telebot.types.Message) -> None:
     is_private = message.chat.type == PRIVATE_MESSAGE
     reply_message(message,
                   agents.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
-                                                                           is_private, True),
+                                                                       is_private, True),
                   not is_private)
 
 
@@ -110,7 +110,7 @@ def text_reply(message: telebot.types.Message) -> None:
     is_reply = check_reply(BOT.get_me().id, message)
     as_reply = True if not is_private else False
 
-    reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private, is_reply)
+    reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private or is_reply, False)
     if reply:
         reply_message(message, reply, as_reply)
 

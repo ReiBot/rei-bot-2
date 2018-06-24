@@ -663,7 +663,7 @@ class ConversationController:
         :return: reply on message or None
         """
         is_call = is_call or self._call_checker.check(input_text)
-        no_empty_reply = True if self._is_question(input_text) and (is_call or is_private) else False
+        no_empty_reply = True if is_call or self._is_question(input_text) and is_private else False
 
         if is_call or is_private or self._messages_counter.count_and_check():
             reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)

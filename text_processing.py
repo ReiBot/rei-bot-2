@@ -12,6 +12,8 @@ import logger
 STEMMER = RussianStemmer()
 LOGGER = logger.get_logger(__file__)
 
+LANGUAGE_TAG = 'rus'
+
 
 def stem(word: str) -> str:
     """
@@ -47,8 +49,7 @@ def get_nouns(sentence: str) -> Set[str]:
 
     words = word_tokenize(sentence)
     
-    tagged: Tuple[str, str] = pos_tag(words, lang='rus')
-    
+    tagged: Tuple[str, str] = pos_tag(words, lang=LANGUAGE_TAG)
 
     nouns = set()
     for word, tag in tagged:

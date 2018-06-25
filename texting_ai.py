@@ -93,10 +93,7 @@ class NounsFindingAgent:
                     reply_variants += self.noun_sentences[noun]
 
         # omitting variants from black list
-        if black_list:
-            for reply in black_list:
-                if reply in reply_variants:
-                    reply_variants = list(filter(lambda x: x != reply, reply_variants))
+        reply_variants = list(filter(lambda x: x not in black_list, reply_variants))
 
         return reply_variants,
 
@@ -112,17 +109,6 @@ class LearningAgent:
         'other': 'NONLEX'
     }
 
-    def _is_simple(self, tagged_words: List[Tuple[str, str]]) -> bool:
-        # are there any punctuation symbols other than in the end?
-        punctuation_symbols = \
-            list(filter(lambda tagged_word: tagged_word[1] == self._parts_of_speech['other'],
-                        tagged_words))
-        if len(punctuation_symbols) > 1 or len(punctuation_symbols) == 1 \
-                and tagged_words[-1] != punctuation_symbols[0]:
-            return False
-
-        return True
-
     def __init__(self, save_file_name: str):
         """
         :param save_file_name: name of a json file to write learned information
@@ -137,6 +123,17 @@ class LearningAgent:
         else:
             self.knowledge_base: Dict[str, Dict[str, List[str]]] = dict()
             json_manager.write(self.knowledge_base, save_file_name)
+
+    def _is_simple(self, tagged_words: List[Tuple[str, str]]) -> bool:
+        # are there any punctuation symbols other than in the end?
+        punctuation_symbols = \
+            list(filter(lambda tagged_word: tagged_word[1] == self._parts_of_speech['other'],
+                        tagged_words))
+        if len(punctuation_symbols) > 1 or len(punctuation_symbols) == 1 \
+                and tagged_words[-1] != punctuation_symbols[0]:
+            return False
+
+        return True
 
     def _make_pattern_from_sentence(self, sentence: str) -> Optional[str]:
         """
@@ -182,18 +179,21 @@ class LearningAgent:
 
         # splitting sentence into parts and making a pattern out of each one
         sub_sentence = list()
+
+        punct_and_conj_tags = [self._parts_of_speech['connecting words'], self._parts_of_speech['other']]
         for i, tagged_word in enumerate(tagged):
             word, tag = tagged_word
             if tag in [self._parts_of_speech['noun'], self._parts_of_speech['verb'],
                        self._parts_of_speech['personal pronoun']]:
-                sub_sentence.append(text_processing.stem(word))
-            elif tag in [self._parts_of_speech['connecting words'], self._parts_of_speech['other']]:
-                if sub_sentence:
-                    patterns.append(self.pattern_delimiter.join(sub_sentence))
-                sub_sentence = list()
+                sub_sentence.append(re.escape(text_processing.stem(word)))
+                if tag in punct_and_conj_tags or i == len(tagged) - 1:
 
-        if sub_sentence:
-            patterns.append(self.pattern_delimiter.join(sub_sentence))
+                    # do not allow a pattern with one word with length less than 3
+                    # or with more than 3 words to be created
+                    if sub_sentence and not (len(sub_sentence) == 1
+                                             and len(sub_sentence[0]) < 3 or len(sub_sentence) > 3):
+                        patterns.append(self.pattern_delimiter.join(sub_sentence))
+                sub_sentence = list()
 
         return patterns
 
@@ -607,7 +607,7 @@ class MessagesCounter:
     """For control of messages frequency of the bot"""
 
     # minimum number of messages between bot's replies
-    messages_period = 30
+    messages_period = 100
     # number of all messages that bot received
     messages_num = 0
 

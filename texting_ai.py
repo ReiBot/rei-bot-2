@@ -186,7 +186,7 @@ class LearningAgent:
         for i, tagged_word in enumerate(tagged):
             word, tag = tagged_word
             if tag in important_pos_tags:
-                sub_sentence.append(re.escape(text_processing.stem(word)))
+                sub_sentence.append(text_processing.stem(word))
                 if tag in punct_and_conj_tags or i == len(tagged) - 1:
 
                     # do not allow a pattern with one word with length less than 3

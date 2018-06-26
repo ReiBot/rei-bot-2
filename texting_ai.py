@@ -187,13 +187,13 @@ class LearningAgent:
             word, tag = tagged_word
             if tag in important_pos_tags:
                 sub_sentence.append(text_processing.stem(word))
-                if tag in punct_and_conj_tags or i == len(tagged) - 1:
+            if tag in punct_and_conj_tags or i == len(tagged) - 1:
 
-                    # do not allow a pattern with one word with length less than 3
-                    # or with more than 3 words to be created
-                    if sub_sentence and not (len(sub_sentence) == 1
-                                             and len(sub_sentence[0]) < 3 or len(sub_sentence) > 3):
-                        patterns.append(self.pattern_delimiter.join(sub_sentence))
+                # do not allow a pattern with one word with length less than 3
+                # or with more than 3 words to be created
+                if sub_sentence and not (len(sub_sentence) == 1
+                                         and len(sub_sentence[0]) < 3 or len(sub_sentence) > 3):
+                    patterns.append(self.pattern_delimiter.join(sub_sentence))
                 sub_sentence = list()
 
         return patterns

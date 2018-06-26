@@ -573,27 +573,26 @@ class RatingRandomReplyAgent(RandomReplyAgent):
 
         # if there are no rated replies with positive rating
         # then there must be regular replies
-        if list(filter(lambda rated_reply: rated_reply[1] >= 0,
-                       rated_replies.items())) or list(filter(lambda reply: reply not in rated_replies.keys(),
-                                                              replies)):
+        if replies or rated_replies:
             possible_replies = \
              list(set(filter(lambda x: x not in black_list, replies
-                             + list(rated_replies.keys())
-                             # adding one or zero random phrases
-                             + random.choices(list(filter(lambda x:
-                                                          not (replies and x in replies
-                                                               or rated_replies and x in rated_replies or black_list
-                                                               and x in black_list),
-                                                          self._all_phrases))) if no_empty_reply or
-                                                                random.randint(0, 1) == 0 else list())))
-        elif no_empty_reply:
+                             + list(filter(lambda x: rated_replies[x] >= 0, list(rated_replies.keys()))))))
+
+            # adding one random phrase
+            if possible_replies:
+                possible_replies += random.choices(list(filter(lambda x: (not black_list or x not in black_list) and
+                                                               (not replies or x not in replies)
+                                                               and (not rated_replies or x not in rated_replies),
+                                                               self._all_phrases)))
+
+        if no_empty_reply and not possible_replies:
             possible_replies = list(filter(lambda x: x not in black_list, self._all_phrases))
 
         if possible_replies:
             reply = random.choices(possible_replies,
                                    list(map(lambda x:
                                             self.__get_rated_weight(rated_replies.get(x, 0),
-                                            self._phrases_weights.get(x, 0)),
+                                                                    self._phrases_weights.get(x, 0)),
                                             possible_replies)))[0]
         else:
             reply = None
@@ -691,10 +690,10 @@ class ConversationController:
         :return: reply on message or None
         """
         is_call = is_call or self._call_checker.check(input_text)
-        no_empty_reply = True if is_call or self._is_question(input_text) \
-                                 or is_private and random.randint(0, 2) < 2 else False
+        no_empty_reply = True if is_call or is_private and (self._is_question(input_text)
+                                                            or random.randint(0, 2) < 2) else False
 
-        if is_call or is_private or random.choices([True, False], [4, 96])[0]:
+        if is_call or is_private or random.choices([True, False], [2, 98])[0]:
             reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
                 self._messages_counter.reset()

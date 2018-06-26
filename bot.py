@@ -3,17 +3,17 @@ Telegram bot module
 """
 
 import time
-
-import emoji
 import os.path
 import ssl
-import telebot
-from aiohttp import web
 from configparser import ConfigParser
+
+import telebot
+import emoji
+from aiohttp import web
 
 import logger
 import messages
-import texting_ai
+import agents
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -80,19 +80,21 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-@BOT.message_handler(commands=['start'])
 @BOT.message_handler(commands=['ask'])
 def command_reply(message: telebot.types.Message) -> None:
     """
-    Handler for /start and /ask commands
-    Sends message back to user that sent /start or /ask command
+    Handler for /ask command
+    Sends message back to user that sent /ask command
     :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
 
-    reply_message(message, texting_ai.PIPELINE.get_reply(message.text, no_empty_reply=True),
-                  False if message.chat.type == PRIVATE_MESSAGE else True)
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    reply_message(message,
+                  agents.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
+                                                                       is_private, True),
+                  not is_private)
 
 
 # Handle text messages
@@ -104,20 +106,13 @@ def text_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     text = message.text
-    is_reply = True
-    no_empty_reply = True
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    is_reply = check_reply(BOT.get_me().id, message)
+    as_reply = True if not is_private else False
 
-    # if private message
-    if message.chat.type == PRIVATE_MESSAGE:
-        is_reply = False
-    # TODO add forward handling
-    # if group message and not a reply on bot's message
-    elif not check_reply(BOT.get_me().id, message):
-        no_empty_reply = False
-
-    reply = texting_ai.PIPELINE.get_reply(text, no_empty_reply=no_empty_reply)
+    reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private or is_reply, False)
     if reply:
-        reply_message(message, reply, is_reply)
+        reply_message(message, reply, as_reply)
 
 
 def check_reply(_id: int, message: telebot.types.Message) -> bool:
@@ -127,7 +122,10 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     :param message: message to check
     :return: True if message is a reply False otherwise
     """
-    return message.reply_to_message and message.reply_to_message.from_user.id == _id
+    if message.reply_to_message:
+        return message.reply_to_message.from_user.id == _id
+
+    return False
 
 
 def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeyboardMarkup:
@@ -149,6 +147,20 @@ def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeybo
     return keyboard
 
 
+def remove_inline_keyboard(message: telebot.types.Message) -> None:
+    """
+    Removes inline keyboard from message
+    :param message: the message a keyboard to be removed from
+    :return: None
+    """
+    # handling connection errors
+    try:
+        BOT.edit_message_reply_markup(chat_id=message.chat.id,
+                                      message_id=message.message_id, reply_markup=None)
+    except Exception as error:
+        LOGGER.error(error)
+
+
 def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) -> None:
     """
     Sends reply on message
@@ -161,10 +173,10 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
         LOGGER.error("empty reply in reply_message()")
         return
 
+    # removing keyboard from previous message
     if messages.CURRENT_GRADING_MESSAGE:
         old_message: telebot.types.Message = messages.CURRENT_GRADING_MESSAGE.message
-        BOT.edit_message_reply_markup(chat_id=old_message.chat.id,
-                                      message_id=old_message.message_id, reply_markup=None)
+        remove_inline_keyboard(old_message)
 
     BOT.send_chat_action(message.chat.id, TYPING)
     time.sleep(TYPING_TIME)
@@ -176,7 +188,7 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     else:
         new_message = BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
 
-    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, reply)
+    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, message.text)
 
 
 @BOT.callback_query_handler(func=lambda call: True)
@@ -184,23 +196,33 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
     """Callback that
     is executed when a user presses a button on the message inline keyboard"""
 
-    grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
-    message: telebot.types.Message = call.message
-
-    # if the message is not the one that is currently grading
-    # then remove keyboard
-    if not grading_message or message.message_id != grading_message.message.message_id:
-        BOT.edit_message_reply_markup(chat_id=message.chat.id,
-                                      message_id=message.message_id, reply_markup=None)
-        return
-
     if call.data in {DOWN_VOTE, UP_VOTE}:
+        grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
+        message: telebot.types.Message = call.message
+
+        # if the message is not the one that is currently grading
+        # then remove keyboard
+        if not grading_message or message.message_id != grading_message.message.message_id:
+            remove_inline_keyboard(message)
+            return
+
         user_id = call.from_user.id
+
         if call.data == UP_VOTE:
             grading_message.up_vote(user_id)
         elif call.data == DOWN_VOTE:
             grading_message.down_vote(user_id)
-        keyboard = make_voting_keyboard(grading_message.get_likes_num(), grading_message.get_dislikes_num())
+
+        grading_message.update_grade()
+
+        # learning
+        agents.LEARNING_AGENT.rating_learn(grading_message.input_message,
+                                           grading_message.reply_message,
+                                           grading_message.get_change_difference())
+
+        # attaching keyboard to message
+        keyboard = make_voting_keyboard(grading_message.get_likes_num(),
+                                        grading_message.get_dislikes_num())
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 

@@ -2,14 +2,18 @@
 Telegram bot module
 """
 
-import ssl
+import time
 import os.path
+import ssl
 from configparser import ConfigParser
-from aiohttp import web
 
 import telebot
-import texting_ai
+import emoji
+from aiohttp import web
+
 import logger
+import messages
+import agents
 
 CONFIG = ConfigParser()
 CONFIG.read(os.path.join('data', 'config.ini'))
@@ -20,13 +24,20 @@ URL_PATH = "/{}/".format(CONFIG['telegram bot']['token'])
 
 telebot.logger = logger.get_logger(__file__)
 
+LOGGER = telebot.logger
+
 BOT = telebot.TeleBot(CONFIG['telegram bot']['token'])
 
 # server that will listen for new messages
 APP = web.Application()
 
-REPLY_AGENT = texting_ai.NounsFindingAgent(os.path.join('data', 'language', 'sentences.json'),
-                                           os.path.join('data', 'language', 'nouns.json'))
+# time for bot to be "typing" in seconds
+TYPING_TIME: int = 2
+
+PRIVATE_MESSAGE = 'private'
+TYPING = 'typing'
+DOWN_VOTE = 'down vote'
+UP_VOTE = 'up vote'
 
 
 def set_proxy() -> None:
@@ -69,27 +80,21 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-@BOT.message_handler(commands=['start'])
-def start_reply(message: telebot.types.Message) -> None:
-    """
-    Handler for /start command
-    Sends message back to user that sent /start command
-    :param message: received message by bot from user
-    :return: None
-    """
-    BOT.send_message(message.chat.id, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
-
-
 @BOT.message_handler(commands=['ask'])
-def ask_reply(message: telebot.types.Message) -> None:
+def command_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
-    Replies to user that sent /ask command
+    Sends message back to user that sent /ask command
     :param message: received message by bot from user
     :return: None
     """
     # TODO for /ask implement replying on previous message
-    BOT.reply_to(message, REPLY_AGENT.get_reply(message.text, no_empty_reply=True))
+
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    reply_message(message,
+                  agents.CONVERSATION_CONTROLLER.proceed_input_message(message.text,
+                                                                       is_private, True),
+                  not is_private)
 
 
 # Handle text messages
@@ -101,19 +106,13 @@ def text_reply(message: telebot.types.Message) -> None:
     :return: None
     """
     text = message.text
+    is_private = message.chat.type == PRIVATE_MESSAGE
+    is_reply = check_reply(BOT.get_me().id, message)
+    as_reply = True if not is_private else False
 
-    # if private message
-    if message.chat.type == 'private':
-        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
-    # if reply on bot's message
-    elif check_reply(BOT.get_me().id, message):
-        BOT.reply_to(message, REPLY_AGENT.get_reply(text, no_empty_reply=True))
-    # TODO add forward handling
-    # if group message
-    else:
-        reply = REPLY_AGENT.get_reply(text)
-        if reply:
-            BOT.reply_to(message, reply)
+    reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_private or is_reply, False)
+    if reply:
+        reply_message(message, reply, as_reply)
 
 
 def check_reply(_id: int, message: telebot.types.Message) -> bool:
@@ -123,7 +122,109 @@ def check_reply(_id: int, message: telebot.types.Message) -> bool:
     :param message: message to check
     :return: True if message is a reply False otherwise
     """
-    return message.reply_to_message and message.reply_to_message.from_user.id == _id
+    if message.reply_to_message:
+        return message.reply_to_message.from_user.id == _id
+
+    return False
+
+
+def make_voting_keyboard(likes: int, dislikes: int) -> telebot.types.InlineKeyboardMarkup:
+    """
+    Makes inline keyboard for grading message by likes and dislikes
+    :param likes: number of likes to display
+    :param dislikes: number of dislikes to display
+    :return: keyboard that can be attached to message
+    """
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    callback_button_dislike = telebot.types.InlineKeyboardButton(
+        text=f"{emoji.emojize(':thumbs_down:')} {dislikes}",
+        callback_data=DOWN_VOTE)
+    callback_button_like = telebot.types.InlineKeyboardButton(
+        text=f"{emoji.emojize(':thumbs_up:')} {likes}",
+        callback_data=UP_VOTE)
+    keyboard.row(callback_button_dislike, callback_button_like)
+
+    return keyboard
+
+
+def remove_inline_keyboard(message: telebot.types.Message) -> None:
+    """
+    Removes inline keyboard from message
+    :param message: the message a keyboard to be removed from
+    :return: None
+    """
+    # handling connection errors
+    try:
+        BOT.edit_message_reply_markup(chat_id=message.chat.id,
+                                      message_id=message.message_id, reply_markup=None)
+    except Exception as error:
+        LOGGER.error(error)
+
+
+def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) -> None:
+    """
+    Sends reply on message
+    :param message: input message
+    :param reply: text reply on message
+    :param is_reply: True if reply_to() method should be used or False if send_message()
+    :return: None
+    """
+    if not reply:
+        LOGGER.error("empty reply in reply_message()")
+        return
+
+    # removing keyboard from previous message
+    if messages.CURRENT_GRADING_MESSAGE:
+        old_message: telebot.types.Message = messages.CURRENT_GRADING_MESSAGE.message
+        remove_inline_keyboard(old_message)
+
+    BOT.send_chat_action(message.chat.id, TYPING)
+    time.sleep(TYPING_TIME)
+
+    keyboard = make_voting_keyboard(0, 0)
+
+    if is_reply:
+        new_message = BOT.reply_to(message, reply, reply_markup=keyboard)
+    else:
+        new_message = BOT.send_message(message.chat.id, reply, reply_markup=keyboard)
+
+    messages.CURRENT_GRADING_MESSAGE = messages.GradableMessage(new_message, message.text)
+
+
+@BOT.callback_query_handler(func=lambda call: True)
+def callback_inline(call: telebot.types.CallbackQuery) -> None:
+    """Callback that
+    is executed when a user presses a button on the message inline keyboard"""
+
+    if call.data in {DOWN_VOTE, UP_VOTE}:
+        grading_message: messages.GradableMessage = messages.CURRENT_GRADING_MESSAGE
+        message: telebot.types.Message = call.message
+
+        # if the message is not the one that is currently grading
+        # then remove keyboard
+        if not grading_message or message.message_id != grading_message.message.message_id:
+            remove_inline_keyboard(message)
+            return
+
+        user_id = call.from_user.id
+
+        if call.data == UP_VOTE:
+            grading_message.up_vote(user_id)
+        elif call.data == DOWN_VOTE:
+            grading_message.down_vote(user_id)
+
+        grading_message.update_grade()
+
+        # learning
+        agents.LEARNING_AGENT.rating_learn(grading_message.input_message,
+                                           grading_message.reply_message,
+                                           grading_message.get_change_difference())
+
+        # attaching keyboard to message
+        keyboard = make_voting_keyboard(grading_message.get_likes_num(),
+                                        grading_message.get_dislikes_num())
+        BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
+                                      reply_markup=keyboard)
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

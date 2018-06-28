@@ -579,7 +579,7 @@ class RatingRandomReplyAgent(RandomReplyAgent):
                                                                                      list(rated_replies.keys()))))))
 
             # adding one random phrase
-            if possible_replies and random.choice([True, False]):
+            if possible_replies and random.choices([True, False], weights=[1, 4]):
                 possible_replies += random.choices(list(filter(lambda x: (not black_list or x not in black_list) and
                                                                (not replies or x not in replies)
                                                                and (not rated_replies or x not in rated_replies),
@@ -695,7 +695,7 @@ class ConversationController:
                                                             or random.choices([True, False], weights=[2, 1])[
                                                                 0]) else False
 
-        if is_call or is_private or random.choices([True, False], [4, 96])[0]:
+        if is_call or is_private or random.choices([True, False], [1, 29])[0]:
             reply = self._agent_pipeline.get_reply(input_text, no_empty_reply=no_empty_reply)
             if reply:
                 self._messages_counter.reset()

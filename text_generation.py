@@ -31,7 +31,8 @@ class TextGenerator:
 
         self.words: Set[str] = set()
         self.ends: Set[str] = set()
-        self.links: Dict[str, List[str]] = dict()
+        self.begin_links: Dict[str, List[str]] = dict()
+        self.end_links: Dict[str, List[str]] = dict()
         self.max_sent_length = -1
         for sentence in sentences:
             words = word_tokenize(sentence)
@@ -40,7 +41,8 @@ class TextGenerator:
             for i, word in enumerate(words):
                 self.words.add(word)
                 if i < len(words) - 1:
-                    self.links[words[i]] = self.links.get(words[i], list()) + [words[i + 1]]
+                    self.begin_links[words[i+1]] = self.begin_links.get(words[i+1], list()) + [words[i]]
+                    self.end_links[words[i]] = self.end_links.get(words[i], list()) + [words[i+1]]
 
     @staticmethod
     def _polish_text(text: str) -> str:
@@ -49,13 +51,14 @@ class TextGenerator:
         for sp in spaces:
             result = result.replace(sp, sp.replace(' ', ''))
 
-        result = result[0].upper() + result.lstrip(result[0])
+        result = result[0].upper() + result[1:]
 
         return result
 
-    def generate(self) -> Set[str]:
+    def generate(self, n: int = 100) -> Set[str]:
         """
         Generates texts
+        :param n: max number of replies
         :return: unique texts
         """
         variants_stack = list()
@@ -65,17 +68,21 @@ class TextGenerator:
 
         end_regex = '^[а-яА-Я].*(' + '|'.join(list(map(re.escape, self.ends))) + ")$"
 
-        while variants_stack and len(result) < 20:
+        while variants_stack and len(result) < n:
             random.shuffle(variants_stack)
             popped = variants_stack.pop()
             joined = ' '.join(popped)
             if len(popped) < self.max_sent_length:
 
-                ends = self.links.get(popped[-1], list())
+                ends = self.end_links.get(popped[-1], list()).copy()
                 random.shuffle(ends)
                 for end in ends:
-                    if end not in popped:
-                        variants_stack.append(popped + [end])
+                    variants_stack.append(popped + [end])
+
+                begins = self.begin_links.get(popped[0], list()).copy()
+                random.shuffle(begins)
+                for begin in begins:
+                    variants_stack.append([begin] + popped)
 
                 if re.search(end_regex, joined):
                     result.add(self._polish_text(joined))

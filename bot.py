@@ -226,7 +226,7 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 
-        BOT.answer_callback_query(call)
+        BOT.answer_callback_query(call.id)
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook

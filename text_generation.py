@@ -31,7 +31,7 @@ LOGGER = logger.get_logger(__file__)
 
 class TextGenerator:
     @staticmethod
-    def construct_links(sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
+    def __construct_links(sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
         begin_links: Dict[str, List[str]] = dict()
         end_links: Dict[str, List[str]] = dict()
 
@@ -51,19 +51,24 @@ class TextGenerator:
 
         sentences = sent_tokenize(base_text)
 
-        self.words: Set[str] = set()
-        self.ends: Set[str] = set()
-        self.begin_links: Dict[str, List[str]] = dict()
-        self.end_links: Dict[str, List[str]] = dict()
+        # all the words that are used for generation
+        self._words: Set[str] = set()
+        # possible end for the text
+        self._ends: Set[str] = set()
+        # links for adding words to the begin of the text
+        self._begin_links: Dict[str, List[str]] = dict()
+        # links for adding words to the end of the text
+        self._end_links: Dict[str, List[str]] = dict()
+        # maximum length of the text
         self.max_sent_length = -1
         for sentence in sentences:
             words = word_tokenize(sentence)
             self.max_sent_length = len(words) if len(words) > self.max_sent_length else self.max_sent_length
-            self.ends.add(words[-1])
+            self._ends.add(words[-1])
             for word in words:
-                self.words.add(word)
+                self._words.add(word)
 
-        self.begin_links, self.end_links = self.construct_links(sentences)
+        self._begin_links, self._end_links = self.__construct_links(sentences)
 
     @staticmethod
     def _polish_text(text: str) -> str:
@@ -112,7 +117,7 @@ class TextGenerator:
         """
         variants_stack = list()
         if not start_word:
-            variants_stack.append(random.choices(list(self.end_links.keys())))
+            variants_stack.append(random.choices(list(self._end_links.keys())))
         else:
             variants_stack.append([start_word])
 
@@ -120,17 +125,18 @@ class TextGenerator:
             if begin_links or end_links:
                 LOGGER.error("There must be ends if there are begin_links or end_links")
                 return set()
-            ends = self.ends
+            ends = self._ends
 
         if not begin_links:
-            begin_links = self.begin_links
+            begin_links = self._begin_links
         if not end_links:
-            end_links = self.end_links
+            end_links = self._end_links
         if not max_sentence_length:
             max_sentence_length = self.max_sent_length
         result = set()
 
-        end_regex = '^[а-яА-Я].*(' + '|'.join(list(map(re.escape, ends))) + ")$"
+        # regex to check if the text is complete
+        end_regex = '^[а-яА-Яa-zA-Z].*(' + '|'.join(list(map(re.escape, ends))) + ")$"
 
         start_time = process_time()
         while variants_stack and len(result) < n:
@@ -138,11 +144,13 @@ class TextGenerator:
             joined = ' '.join(popped)
             if len(popped) < max_sentence_length:
 
+                # possible additions from the end of the text
                 ends = end_links.get(popped[-1], list()).copy()
                 random.shuffle(ends)
                 for end in ends:
                     variants_stack.append(popped + [end])
 
+                # possible additions from the begin of the text
                 begins = begin_links.get(popped[0], list()).copy()
                 random.shuffle(begins)
                 for begin in begins:
@@ -151,6 +159,7 @@ class TextGenerator:
                 if re.search(end_regex, joined):
                     result.add(self._polish_text(joined))
 
+            # for preventing from looping forever
             if process_time() - start_time > 1: break
 
         return result
@@ -161,28 +170,30 @@ class TextGenerator:
         sentences = sent_tokenize(text)
         result: List[str] = list()
 
-        custom_begin_links, custom_end_links = self.construct_links(sentences)
+        custom_begin_links, custom_end_links = self.__construct_links(sentences)
         start_words = list(custom_end_links.keys())
 
-        for word, previous_links in self.begin_links.items():
+        for word, previous_links in self._begin_links.items():
             custom_begin_links[word] = custom_begin_links.get(word, list()) + previous_links
-        for word, next_links in self.end_links.items():
+        for word, next_links in self._end_links.items():
             custom_end_links[word] = custom_end_links.get(word, list()) + next_links
 
         ends = set()
 
-        for end in self.ends:
+        for end in self._ends:
             ends.add(end)
 
         for sentence in sentences:
             words = word_tokenize(sentence)
             ends.add(words[-1])
+            """
             stemmed = set(map(stem, words))
             extra_words = list(filter(lambda word: stem(word) in stemmed, self.words))
             if not extra_words:
                 return set()
             else:
                 start_words += extra_words
+            """
 
         start_words = list(filter(lambda word: not re.search('[' + re.escape(string.punctuation) + ']', word), start_words))
 
@@ -193,22 +204,23 @@ class TextGenerator:
         return set(result)
 
 
+
+
 def main():
     with open(BASE_PATH, 'r') as file:
         text_gen = TextGenerator(file.read())
 
     with open(TEST_PATH, 'r') as file:
-        tests = file.readlines()
+        test = file.readlines()
 
-    for i, test in enumerate(tests):
-        texts = text_gen.generate_from_input(test)
-        print('input:')
-        print('\t'+test)
-        print('output:')
-        if texts:
-            print('\t'+random.choice(list(texts))+'\n')
+    for line in test:
+        print('in:\t' + line)
+        replies = text_gen.generate_from_input(line)
+        if replies:
+            print('out:\t' + random.choice(list(replies)))
         else:
-            print('\n')
+            print('out:\t')
+        print()
 
 
 if __name__ == '__main__':

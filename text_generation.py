@@ -32,9 +32,17 @@ END_PUNCT_REGEX = '[!.?]'
 LOGGER = logger.get_logger(__file__)
 
 
+def measure_run_time(func):
+    def call_and_measure(*args, **kwargs):
+        start_time = process_time()
+        result = func(*args, **kwargs)
+        print(func.__name__ + ' ' + str(process_time() - start_time))
+        return result
+    return call_and_measure
+
+
 class TextGenerator:
-    @staticmethod
-    def __construct_links(sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
+    def __construct_links(self, sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
         begin_links: Dict[str, List[str]] = dict()
         end_links: Dict[str, List[str]] = dict()
 
@@ -44,6 +52,11 @@ class TextGenerator:
                 if i < len(words) - 1:
                     begin_links[words[i + 1]] = begin_links.get(words[i + 1], list()) + [words[i]]
                     end_links[words[i]] = end_links.get(words[i], list()) + [words[i + 1]]
+
+        for word, previous_links in self._begin_links.items():
+            begin_links[word] = begin_links.get(word, list()) + previous_links
+        for word, next_links in self._end_links.items():
+            end_links[word] = end_links.get(word, list()) + next_links
 
         return begin_links, end_links
 
@@ -113,10 +126,6 @@ class TextGenerator:
         for l_l in low_letters:
             result = result.replace(l_l, l_l[:-1] + l_l[-1].upper())
 
-        up_letters = re.findall('^' + END_PUNCT_REGEX + ' ' + LETTERS_REGEX, result)
-        for u_l in up_letters:
-            result = result.replace(u_l, u_l[:-1] + u_l[-1].lower())
-
         result = result.replace('``', '"')
         result = result.replace("''", '"')
 
@@ -125,8 +134,7 @@ class TextGenerator:
     def generate(self, n: int = 25, start_word: int = None,
                  begin_links: Dict[str, List[str]] = None,
                  end_links: Dict[str, List[str]] = None,
-                 max_sentence_length: int = None,
-                 ends: Set[str] = None) -> Set[str]:
+                 max_sentence_length: int = None) -> Set[str]:
         """
         Generates texts
         :param n: max number of replies
@@ -134,7 +142,6 @@ class TextGenerator:
         :param begin_links: links from words to the previous ones
         :param end_links: links from words to next ones
         :param max_sentence_length: max number of words in each generated text
-        :param ends: possible ends of text
         :return: unique texts
         """
         variants_stack = list()
@@ -142,12 +149,6 @@ class TextGenerator:
             variants_stack.append(random.choices(list(self._end_links.keys())))
         else:
             variants_stack.append([start_word])
-
-        if not ends:
-            if begin_links or end_links:
-                LOGGER.error("There must be ends if there are begin_links or end_links")
-                return set()
-            ends = self._ends
 
         if not begin_links:
             begin_links = self._begin_links
@@ -160,8 +161,10 @@ class TextGenerator:
         # regex to check if the text is complete
         end_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
 
-        start_time = process_time()
-        while variants_stack and len(result) < n:
+        max_stack_num = 1_000
+
+        while variants_stack and len(variants_stack) < max_stack_num and len(result) < n:
+            random.shuffle(variants_stack)
             popped = variants_stack.pop()
             joined = ' '.join(popped)
             if len(popped) < max_sentence_length:
@@ -181,35 +184,20 @@ class TextGenerator:
                 if re.search(end_regex, joined):
                     result.add(self._polish_text(joined))
 
-            # for preventing from looping forever
-            if process_time() - start_time > 1: break
-
         return result
 
     def generate_from_input(self, input_text: str) -> Set[str]:
         text = input_text
-        if not re.search(END_PUNCT_REGEX + '$', text):
-            text += '.'
 
         sentences = sent_tokenize(text)
         result: List[str] = list()
 
         custom_begin_links, custom_end_links = self.__construct_links(sentences)
-        start_words = list(custom_end_links.keys())
-
-        for word, previous_links in self._begin_links.items():
-            custom_begin_links[word] = custom_begin_links.get(word, list()) + previous_links
-        for word, next_links in self._end_links.items():
-            custom_end_links[word] = custom_end_links.get(word, list()) + next_links
-
-        ends = set()
-
-        for end in self._ends:
-            ends.add(end)
+        start_words = list()
 
         for sentence in sentences:
             words = word_tokenize(sentence)
-            ends.add(words[-1])
+            start_words += words
             stemmed = set(map(stem, words))
             extra_words = list(filter(lambda word: stem(word) in stemmed, self._words))
             if not extra_words:
@@ -217,11 +205,12 @@ class TextGenerator:
             else:
                 start_words += extra_words
 
-        start_words = list(filter(lambda word: not re.search('[' + re.escape(string.punctuation) + ']', word), start_words))
+        start_words = list(set(filter(lambda word: not re.search('[' + re.escape(string.punctuation) + ']', word),
+                               start_words)))
 
         for word in set(start_words):
             result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links,
-                                    ends=ends, max_sentence_length=10)
+                                    max_sentence_length=10)
 
         return set(result)
 

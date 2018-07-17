@@ -26,6 +26,9 @@ PARTS_OF_SPEECH = {
         'other': 'NONLEX'
     }
 
+LETTERS_REGEX = '[^\W\d_]'
+END_PUNCT_REGEX = '[!.?]'
+
 LOGGER = logger.get_logger(__file__)
 
 
@@ -46,10 +49,13 @@ class TextGenerator:
 
     def __init__(self, base_text: str):
         """
-        :param base_text: text wich is used for generation
+        :param base_text: text which is used for generation
         """
 
-        sentences = sent_tokenize(base_text)
+        lines = base_text.split('\n')
+        sentences = []
+        for line in lines:
+            sentences += sent_tokenize(line)
 
         # all the words that are used for generation
         self._words: Set[str] = set()
@@ -98,6 +104,22 @@ class TextGenerator:
 
         result = result.replace(',.', '.')
 
+        empty_pairs = re.findall('(' + re.escape('|'.join(pair_puncts.keys())) + ')' + ' '
+                                 + '(' + re.escape('|'.join(pair_puncts.values())) + ')', result)
+        for e_p in empty_pairs:
+            result = result.replace(e_p, ' ')
+
+        low_letters = re.findall(END_PUNCT_REGEX + ' ' + LETTERS_REGEX, result)
+        for l_l in low_letters:
+            result = result.replace(l_l, l_l[:-1] + l_l[-1].upper())
+
+        up_letters = re.findall('^' + END_PUNCT_REGEX + ' ' + LETTERS_REGEX, result)
+        for u_l in up_letters:
+            result = result.replace(u_l, u_l[:-1] + u_l[-1].lower())
+
+        result = result.replace('``', '"')
+        result = result.replace("''", '"')
+
         return result + '.' if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
 
     def generate(self, n: int = 25, start_word: int = None,
@@ -136,7 +158,7 @@ class TextGenerator:
         result = set()
 
         # regex to check if the text is complete
-        end_regex = '^[а-яА-Яa-zA-Z].*(' + '|'.join(list(map(re.escape, ends))) + ")$"
+        end_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
 
         start_time = process_time()
         while variants_stack and len(result) < n:
@@ -166,6 +188,8 @@ class TextGenerator:
 
     def generate_from_input(self, input_text: str) -> Set[str]:
         text = input_text
+        if not re.search(END_PUNCT_REGEX + '$', text):
+            text += '.'
 
         sentences = sent_tokenize(text)
         result: List[str] = list()
@@ -186,14 +210,12 @@ class TextGenerator:
         for sentence in sentences:
             words = word_tokenize(sentence)
             ends.add(words[-1])
-            """
             stemmed = set(map(stem, words))
-            extra_words = list(filter(lambda word: stem(word) in stemmed, self.words))
+            extra_words = list(filter(lambda word: stem(word) in stemmed, self._words))
             if not extra_words:
                 return set()
             else:
                 start_words += extra_words
-            """
 
         start_words = list(filter(lambda word: not re.search('[' + re.escape(string.punctuation) + ']', word), start_words))
 
@@ -202,8 +224,6 @@ class TextGenerator:
                                     ends=ends, max_sentence_length=10)
 
         return set(result)
-
-
 
 
 def main():

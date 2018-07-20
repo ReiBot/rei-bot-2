@@ -10,13 +10,14 @@ from typing import Dict, List, Set
 from time import process_time
 
 from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk import pos_tag
 
 from text_processing import stem
 import logger
 
 BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
 
-TEST_PATH = os.path.join('data', 'tests', 'test0.txt')
+TEST_PATH = os.path.join('data', 'tests', 'test3.txt')
 
 PARTS_OF_SPEECH = {
         'noun': 'S',
@@ -42,7 +43,7 @@ def measure_run_time(func):
 
 
 class TextGenerator:
-    def __construct_links(self, sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
+    def _construct_links(self, sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
         begin_links: Dict[str, List[str]] = dict()
         end_links: Dict[str, List[str]] = dict()
 
@@ -87,7 +88,7 @@ class TextGenerator:
             for word in words:
                 self._words.add(word)
 
-        self._begin_links, self._end_links = self.__construct_links(sentences)
+        self._begin_links, self._end_links = self._construct_links(sentences)
 
     @staticmethod
     def _polish_text(text: str) -> str:
@@ -129,19 +130,37 @@ class TextGenerator:
         result = result.replace('``', '"')
         result = result.replace("''", '"')
 
-        return result + '.' if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
+        last_spaces = re.findall(' +$', result)
+        for l_s in last_spaces:
+            result.replace(l_s, '')
+
+        return result + random.choice(END_PUNCT_REGEX.strip('[').strip(']')) \
+            if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
+
+    def _evaluate_text(self, text: str) -> bool:
+        """
+        Checks if the text is complete
+        :param text: text to check
+        :return: True if complete False otherwise
+        """
+        # regex to check if the text is complete
+        check_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
+
+        known_words = list(filter(lambda w: not re.search(END_PUNCT_REGEX, w) and
+                                  w in self._words, word_tokenize(text)))
+        return re.search(check_regex, text) and known_words
 
     def generate(self, n: int = 25, start_word: int = None,
                  begin_links: Dict[str, List[str]] = None,
                  end_links: Dict[str, List[str]] = None,
-                 max_sentence_length: int = None) -> Set[str]:
+                 max_word_num: int = None) -> Set[str]:
         """
         Generates texts
         :param n: max number of replies
         :param start_word: the word from which the generation starts
         :param begin_links: links from words to the previous ones
         :param end_links: links from words to next ones
-        :param max_sentence_length: max number of words in each generated text
+        :param max_word_num: max number of words in each generated text
         :return: unique texts
         """
         variants_stack = list()
@@ -154,12 +173,9 @@ class TextGenerator:
             begin_links = self._begin_links
         if not end_links:
             end_links = self._end_links
-        if not max_sentence_length:
-            max_sentence_length = self.max_sent_length
+        if not max_word_num:
+            max_word_num = self.max_sent_length
         result = set()
-
-        # regex to check if the text is complete
-        end_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
 
         max_stack_num = 1_000
 
@@ -167,7 +183,7 @@ class TextGenerator:
             random.shuffle(variants_stack)
             popped = variants_stack.pop()
             joined = ' '.join(popped)
-            if len(popped) < max_sentence_length:
+            if len(popped) < max_word_num:
 
                 # possible additions from the end of the text
                 ends = end_links.get(popped[-1], list()).copy()
@@ -181,52 +197,84 @@ class TextGenerator:
                 for begin in begins:
                     variants_stack.append([begin] + popped)
 
-                if re.search(end_regex, joined):
+                if self._evaluate_text(joined):
                     result.add(self._polish_text(joined))
+
+        #print(len(variants_stack), ' ', len(result))
 
         return result
 
     def generate_from_input(self, input_text: str) -> Set[str]:
         text = input_text
+        if not re.search(END_PUNCT_REGEX, text): text = text + '.'
 
         sentences = sent_tokenize(text)
         result: List[str] = list()
 
-        custom_begin_links, custom_end_links = self.__construct_links(sentences)
+        custom_begin_links, custom_end_links = self._construct_links(sentences)
         start_words = list()
 
         for sentence in sentences:
             words = word_tokenize(sentence)
-            start_words += words
-            stemmed = set(map(stem, words))
-            extra_words = list(filter(lambda word: stem(word) in stemmed, self._words))
-            if not extra_words:
-                return set()
-            else:
-                start_words += extra_words
+            tagged = pos_tag(words, lang='rus')
+            important_words = list(filter(lambda t_w: t_w[1] in [PARTS_OF_SPEECH['noun'],
+                                                                 PARTS_OF_SPEECH['personal pronoun'],
+                                                                 PARTS_OF_SPEECH['verb']], tagged))
+            start_words += list(map(lambda w: w[0], important_words))
 
-        start_words = list(set(filter(lambda word: not re.search('[' + re.escape(string.punctuation) + ']', word),
-                               start_words)))
+        stemmed = set(map(stem, start_words))
+        extra_words = list(filter(lambda word: stem(word) in stemmed, self._words))
+        start_words += extra_words
 
         for word in set(start_words):
-            result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links,
-                                    max_sentence_length=10)
+            result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
 
         return set(result)
 
 
+class PartsOfSpeechTextGenerator(TextGenerator):
+    """
+    Same as its parent but evaluates text using order of parts of speech got from speech base
+    """
+    def __init__(self, base_text):
+        super().__init__(base_text)
+        self._text_structures: Set[str] = set()
+        lines = base_text.split('\n')
+        for line in lines:
+            self._text_structures.add(self._make_part_of_speech_string(line))
+
+    @staticmethod
+    def _make_part_of_speech_string(text: str) -> str:
+        parts_of_speech = list()
+        sentences = sent_tokenize(text)
+        for sentence in sentences:
+                words = word_tokenize(sentence)
+                tagged = pos_tag(words, lang='rus')
+                parts_of_speech += list(map(lambda t: t[1].split('=')[0], tagged))
+
+        return ' '. join(parts_of_speech)
+
+    def _evaluate_text(self, text):
+        check_string = self._make_part_of_speech_string(text)
+        return check_string in self._text_structures and super()._evaluate_text(text)
+
+    @measure_run_time
+    def generate_from_input(self, input_text: str):
+        return super().generate_from_input(input_text)
+
+
 def main():
     with open(BASE_PATH, 'r') as file:
-        text_gen = TextGenerator(file.read())
+        text_gen = PartsOfSpeechTextGenerator(file.read())
 
     with open(TEST_PATH, 'r') as file:
         test = file.readlines()
 
-    for line in test:
+    for i, line in enumerate(test):
         print('in:\t' + line)
         replies = text_gen.generate_from_input(line)
         if replies:
-            print('out:\t' + random.choice(list(replies)))
+            print('out:\t', replies)
         else:
             print('out:\t')
         print()

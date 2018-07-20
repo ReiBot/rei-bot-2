@@ -17,7 +17,7 @@ import logger
 
 BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
 
-TEST_PATH = os.path.join('data', 'tests', 'test3.txt')
+TEST_PATH = os.path.join('data', 'tests', 'test2.txt')
 
 PARTS_OF_SPEECH = {
         'noun': 'S',
@@ -74,7 +74,7 @@ class TextGenerator:
         # all the words that are used for generation
         self._words: Set[str] = set()
         # possible end for the text
-        self._ends: Set[str] = set()
+        self._ends: List[str] = list()
         # links for adding words to the begin of the text
         self._begin_links: Dict[str, List[str]] = dict()
         # links for adding words to the end of the text
@@ -84,14 +84,16 @@ class TextGenerator:
         for sentence in sentences:
             words = word_tokenize(sentence)
             self.max_sent_length = len(words) if len(words) > self.max_sent_length else self.max_sent_length
-            self._ends.add(words[-1])
+            self._ends.append(words[-1])
             for word in words:
                 self._words.add(word)
 
         self._begin_links, self._end_links = self._construct_links(sentences)
 
-    @staticmethod
-    def _polish_text(text: str) -> str:
+    def _add_end_punct(self, text: str) -> str:
+        return text + random.choice(self._ends)
+
+    def _polish_text(self, text: str) -> str:
         spaces = re.findall(' [' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~") + ']|[' + re.escape('(<?@[`{') + '] ', text)
         result = text
         for sp in spaces:
@@ -134,7 +136,7 @@ class TextGenerator:
         for l_s in last_spaces:
             result.replace(l_s, '')
 
-        return result + random.choice(END_PUNCT_REGEX.strip('[').strip(']')) \
+        return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
 
     def _evaluate_text(self, text: str) -> bool:
@@ -146,9 +148,11 @@ class TextGenerator:
         # regex to check if the text is complete
         check_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
 
+        """
         known_words = list(filter(lambda w: not re.search(END_PUNCT_REGEX, w) and
                                   w in self._words, word_tokenize(text)))
-        return re.search(check_regex, text) and known_words
+        """
+        return re.search(check_regex, text) # and known_words
 
     def generate(self, n: int = 25, start_word: int = None,
                  begin_links: Dict[str, List[str]] = None,
@@ -200,8 +204,6 @@ class TextGenerator:
                 if self._evaluate_text(joined):
                     result.add(self._polish_text(joined))
 
-        #print(len(variants_stack), ' ', len(result))
-
         return result
 
     def generate_from_input(self, input_text: str) -> Set[str]:
@@ -227,7 +229,7 @@ class TextGenerator:
         start_words += extra_words
 
         for word in set(start_words):
-            result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
+            result += self.generate(n=100, start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
 
         return set(result)
 
@@ -239,24 +241,48 @@ class PartsOfSpeechTextGenerator(TextGenerator):
     def __init__(self, base_text):
         super().__init__(base_text)
         self._text_structures: Set[str] = set()
+        self._text_structures_ends: Dict[str, List[str]] = dict()
         lines = base_text.split('\n')
         for line in lines:
-            self._text_structures.add(self._make_part_of_speech_string(line))
+            p_o_s_string = self._make_part_of_speech_string(line)
+            line_ends = re.findall('|'.join(list(map(re.escape, self._ends))) + '$', line)
+            self._text_structures.add(p_o_s_string)
+            self._text_structures_ends[p_o_s_string] = self._text_structures_ends.get(p_o_s_string, list()) + line_ends
+
+    def _polish_text(self, text: str):
+        result = super()._polish_text(text)
+        unwanted_dashes = re.findall(' —' + END_PUNCT_REGEX, result)
+        for u_d in unwanted_dashes:
+            result = result.replace(u_d, u_d.replace(' —', ''))
+
+        ends = re.findall(END_PUNCT_REGEX + '$', result)
+        if not ends:
+            result = result.rstrip(string.punctuation) + random.choice(self._ends)
+
+        return result
 
     @staticmethod
     def _make_part_of_speech_string(text: str) -> str:
         parts_of_speech = list()
         sentences = sent_tokenize(text)
         for sentence in sentences:
-                words = word_tokenize(sentence)
-                tagged = pos_tag(words, lang='rus')
-                parts_of_speech += list(map(lambda t: t[1].split('=')[0], tagged))
+            words = word_tokenize(sentence)
+            tagged = pos_tag(words, lang='rus')
+            parts_of_speech += list(map(lambda t: t[1].split('=')[0], tagged))
 
-        return ' '. join(parts_of_speech)
+        return ' '. join(parts_of_speech[:-1] if len(parts_of_speech) > 1
+                         and parts_of_speech[-1] == PARTS_OF_SPEECH['other'] else parts_of_speech)
 
     def _evaluate_text(self, text):
         check_string = self._make_part_of_speech_string(text)
-        return check_string in self._text_structures and super()._evaluate_text(text)
+        return check_string in self._text_structures  # and super()._evaluate_text(text)
+
+    def _add_end_punct(self, text: str) -> str:
+        p_o_s_string = self._make_part_of_speech_string(text)
+        ends = self._text_structures_ends.get(p_o_s_string, None)
+        if not ends:
+            ends = self._ends
+        return text + random.choice(ends)
 
     @measure_run_time
     def generate_from_input(self, input_text: str):

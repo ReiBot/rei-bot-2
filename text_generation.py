@@ -17,7 +17,7 @@ import logger
 
 BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
 
-TEST_PATH = os.path.join('data', 'tests', 'test2.txt')
+TEST_PATH = os.path.join('data', 'tests', 'test0.txt')
 
 PARTS_OF_SPEECH = {
         'noun': 'S',
@@ -94,10 +94,7 @@ class TextGenerator:
         return text + random.choice(self._ends)
 
     def _polish_text(self, text: str) -> str:
-        spaces = re.findall(' [' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~") + ']|[' + re.escape('(<?@[`{') + '] ', text)
         result = text
-        for sp in spaces:
-            result = result.replace(sp, sp.replace(' ', ''))
 
         unwanted_puncts = re.findall('[' + re.escape(string.punctuation) + ']{4,100}', result)
         for up in unwanted_puncts:
@@ -132,9 +129,12 @@ class TextGenerator:
         result = result.replace('``', '"')
         result = result.replace("''", '"')
 
-        last_spaces = re.findall(' +$', result)
-        for l_s in last_spaces:
-            result.replace(l_s, '')
+        spaces = re.findall(' +[' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~") + ']|[' + re.escape('(<?@[`{') + '] +',
+                            result)
+        for sp in spaces:
+            result = result.replace(sp, sp.replace(' ', ''))
+
+        result = result.rstrip(' ')
 
         return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
@@ -257,7 +257,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
 
         ends = re.findall(END_PUNCT_REGEX + '$', result)
         if not ends:
-            result = result.rstrip(string.punctuation) + random.choice(self._ends)
+            result = result.rstrip(string.punctuation+' ') + random.choice(self._ends)
 
         return result
 
@@ -284,7 +284,6 @@ class PartsOfSpeechTextGenerator(TextGenerator):
             ends = self._ends
         return text + random.choice(ends)
 
-    @measure_run_time
     def generate_from_input(self, input_text: str):
         return super().generate_from_input(input_text)
 
@@ -297,10 +296,10 @@ def main():
         test = file.readlines()
 
     for i, line in enumerate(test):
-        print('in:\t' + line)
+        print('in:\t', line)
         replies = text_gen.generate_from_input(line)
         if replies:
-            print('out:\t', replies)
+            print('out:\t', random.choice(list(replies)))
         else:
             print('out:\t')
         print()

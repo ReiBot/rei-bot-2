@@ -24,6 +24,7 @@ PARTS_OF_SPEECH = {
         'verb': 'V',
         'personal pronoun': 'S-PRO',
         'connecting words': 'CONJ',
+        'part': 'PART',
         'other': 'NONLEX'
     }
 
@@ -51,8 +52,10 @@ class TextGenerator:
             words = word_tokenize(sentence)
             for i, word in enumerate(words):
                 if i < len(words) - 1:
-                    begin_links[words[i + 1]] = begin_links.get(words[i + 1], list()) + [words[i]]
-                    end_links[words[i]] = end_links.get(words[i], list()) + [words[i + 1]]
+                    current_i = i
+                    next_i = i + 1
+                    begin_links[words[next_i]] = begin_links.get(words[next_i], list()) + [words[current_i]]
+                    end_links[words[current_i]] = end_links.get(words[current_i], list()) + [words[next_i]]
 
         for word, previous_links in self._begin_links.items():
             begin_links[word] = begin_links.get(word, list()) + previous_links
@@ -101,7 +104,6 @@ class TextGenerator:
             result = result.replace(up, up[:3])
 
         result = result[0].upper() + result[1:]
-
         pair_puncts = {
             "''": '``',
             '(': ')',
@@ -129,7 +131,7 @@ class TextGenerator:
         result = result.replace('``', '"')
         result = result.replace("''", '"')
 
-        spaces = re.findall(' +[' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~") + ']|[' + re.escape('(<?@[`{') + '] +',
+        spaces = re.findall(' +[' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~\"") + ']|[' + re.escape('(<?@[`{') + '] +',
                             result)
         for sp in spaces:
             result = result.replace(sp, sp.replace(' ', ''))
@@ -154,13 +156,12 @@ class TextGenerator:
         """
         return re.search(check_regex, text) # and known_words
 
-    def generate(self, n: int = 25, start_word: int = None,
+    def generate(self, start_word: str = None,
                  begin_links: Dict[str, List[str]] = None,
                  end_links: Dict[str, List[str]] = None,
                  max_word_num: int = None) -> Set[str]:
         """
         Generates texts
-        :param n: max number of replies
         :param start_word: the word from which the generation starts
         :param begin_links: links from words to the previous ones
         :param end_links: links from words to next ones
@@ -183,8 +184,7 @@ class TextGenerator:
 
         max_stack_num = 1_000
 
-        while variants_stack and len(variants_stack) < max_stack_num and len(result) < n:
-            random.shuffle(variants_stack)
+        while variants_stack and len(variants_stack) < max_stack_num:
             popped = variants_stack.pop()
             joined = ' '.join(popped)
             if len(popped) < max_word_num:
@@ -203,6 +203,8 @@ class TextGenerator:
 
                 if self._evaluate_text(joined):
                     result.add(self._polish_text(joined))
+                else:
+                    random.shuffle(variants_stack)
 
         return result
 
@@ -219,9 +221,9 @@ class TextGenerator:
         for sentence in sentences:
             words = word_tokenize(sentence)
             tagged = pos_tag(words, lang='rus')
-            important_words = list(filter(lambda t_w: t_w[1] in [PARTS_OF_SPEECH['noun'],
+            important_words = list(filter(lambda t_w: t_w[1] in {PARTS_OF_SPEECH['noun'],
                                                                  PARTS_OF_SPEECH['personal pronoun'],
-                                                                 PARTS_OF_SPEECH['verb']], tagged))
+                                                                 PARTS_OF_SPEECH['verb']}, tagged))
             start_words += list(map(lambda w: w[0], important_words))
 
         stemmed = set(map(stem, start_words))
@@ -229,7 +231,7 @@ class TextGenerator:
         start_words += extra_words
 
         for word in set(start_words):
-            result += self.generate(n=100, start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
+            result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
 
         return set(result)
 
@@ -251,13 +253,13 @@ class PartsOfSpeechTextGenerator(TextGenerator):
 
     def _polish_text(self, text: str):
         result = super()._polish_text(text)
-        unwanted_dashes = re.findall(' —' + END_PUNCT_REGEX, result)
+        unwanted_dashes = re.findall(' *[—-]' + END_PUNCT_REGEX + '|' + ' *[—-]$', result)
         for u_d in unwanted_dashes:
-            result = result.replace(u_d, u_d.replace(' —', ''))
+            result = result.replace(u_d, u_d.strip(' —-'))
 
         ends = re.findall(END_PUNCT_REGEX + '$', result)
         if not ends:
-            result = result.rstrip(string.punctuation+' ') + random.choice(self._ends)
+            result = result.rstrip(',:; ') + random.choice(self._ends)
 
         return result
 
@@ -299,7 +301,7 @@ def main():
         print('in:\t', line)
         replies = text_gen.generate_from_input(line)
         if replies:
-            print('out:\t', random.choice(list(replies)))
+            print('out:\t', replies)
         else:
             print('out:\t')
         print()

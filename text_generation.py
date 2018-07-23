@@ -1,8 +1,6 @@
 """
 Module for text generating
 """
-
-import os.path
 import random
 import re
 import string
@@ -15,9 +13,6 @@ from nltk import pos_tag
 from text_processing import stem
 import logger
 
-BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
-
-TEST_PATH = os.path.join('data', 'tests', 'test0.txt')
 
 PARTS_OF_SPEECH = {
         'noun': 'S',
@@ -44,26 +39,6 @@ def measure_run_time(func):
 
 
 class TextGenerator:
-    def _construct_links(self, sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
-        begin_links: Dict[str, List[str]] = dict()
-        end_links: Dict[str, List[str]] = dict()
-
-        for sentence in sentences:
-            words = word_tokenize(sentence)
-            for i, word in enumerate(words):
-                if i < len(words) - 1:
-                    current_i = i
-                    next_i = i + 1
-                    begin_links[words[next_i]] = begin_links.get(words[next_i], list()) + [words[current_i]]
-                    end_links[words[current_i]] = end_links.get(words[current_i], list()) + [words[next_i]]
-
-        for word, previous_links in self._begin_links.items():
-            begin_links[word] = begin_links.get(word, list()) + previous_links
-        for word, next_links in self._end_links.items():
-            end_links[word] = end_links.get(word, list()) + next_links
-
-        return begin_links, end_links
-
     def __init__(self, base_text: str):
         """
         :param base_text: text which is used for generation
@@ -93,6 +68,26 @@ class TextGenerator:
 
         self._begin_links, self._end_links = self._construct_links(sentences)
 
+    def _construct_links(self, sentences: List[str]) -> (Dict[str, List[str]], Dict[str, List[str]]):
+        begin_links: Dict[str, List[str]] = dict()
+        end_links: Dict[str, List[str]] = dict()
+
+        for sentence in sentences:
+            words = word_tokenize(sentence)
+            for i, word in enumerate(words):
+                if i < len(words) - 1:
+                    current_i = i
+                    next_i = i + 1
+                    begin_links[words[next_i]] = begin_links.get(words[next_i], list()) + [words[current_i]]
+                    end_links[words[current_i]] = end_links.get(words[current_i], list()) + [words[next_i]]
+
+        for word, previous_links in self._begin_links.items():
+            begin_links[word] = begin_links.get(word, list()) + previous_links
+        for word, next_links in self._end_links.items():
+            end_links[word] = end_links.get(word, list()) + next_links
+
+        return begin_links, end_links
+
     def _add_end_punct(self, text: str) -> str:
         return text + random.choice(self._ends)
 
@@ -102,13 +97,12 @@ class TextGenerator:
         unwanted_puncts = re.findall('[' + re.escape(string.punctuation) + ']{4,100}', result)
         for up in unwanted_puncts:
             result = result.replace(up, up[:3])
-
-        result = result[0].upper() + result[1:]
         pair_puncts = {
             "''": '``',
             '(': ')',
             '[': ']',
-            '{': '}'
+            '{': '}',
+            '«': '»'
         }
 
         for key, value in pair_puncts.items():
@@ -128,15 +122,17 @@ class TextGenerator:
         for l_l in low_letters:
             result = result.replace(l_l, l_l[:-1] + l_l[-1].upper())
 
-        result = result.replace('``', '"')
-        result = result.replace("''", '"')
-
         spaces = re.findall(' +[' + re.escape("'!#$%&)*+,./:;>?@\\]^_|}~\"") + ']|[' + re.escape('(<?@[`{') + '] +',
                             result)
         for sp in spaces:
             result = result.replace(sp, sp.replace(' ', ''))
 
-        result = result.rstrip(' ')
+        result = result.replace('``', '"')
+        result = result.replace("''", '"')
+
+        result = result.strip(' ')
+
+        result = result[0].upper() + result[1:]
 
         return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
@@ -288,24 +284,3 @@ class PartsOfSpeechTextGenerator(TextGenerator):
 
     def generate_from_input(self, input_text: str):
         return super().generate_from_input(input_text)
-
-
-def main():
-    with open(BASE_PATH, 'r') as file:
-        text_gen = PartsOfSpeechTextGenerator(file.read())
-
-    with open(TEST_PATH, 'r') as file:
-        test = file.readlines()
-
-    for i, line in enumerate(test):
-        print('in:\t', line)
-        replies = text_gen.generate_from_input(line)
-        if replies:
-            print('out:\t', replies)
-        else:
-            print('out:\t')
-        print()
-
-
-if __name__ == '__main__':
-    main()

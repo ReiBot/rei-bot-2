@@ -2,7 +2,7 @@
 Module for processing Russian text
 """
 
-from typing import Set, Tuple
+from typing import Set, Tuple, List
 from nltk.stem.snowball import RussianStemmer
 from nltk import pos_tag
 from nltk.tokenize import word_tokenize
@@ -16,6 +16,17 @@ LOGGER = logger.get_logger(__file__)
 PARTICULAR_STEMMED_CASES = {
     "рей": "рей"
 }
+
+PARTS_OF_SPEECH = {
+        'noun': 'S',
+        'verb': 'V',
+        'personal pronoun': 'S-PRO',
+        'connecting words': 'CONJ',
+        'part': 'PART',
+        'other': 'NONLEX',
+        'adjective': 'A',
+        'negative pronoun': 'PRAEDIC-PRO'
+    }
 
 
 def stem(word: str) -> str:
@@ -51,7 +62,7 @@ def get_nouns(sentence: str) -> Set[str]:
         return set()
 
     words = word_tokenize(sentence)
-    tagged: Tuple[str, str] = pos_tag(words, lang='rus')
+    tagged: Tuple[str, str] = tag_words_by_part_of_speech(words)
 
     nouns = set()
     for word, tag in tagged:
@@ -60,3 +71,21 @@ def get_nouns(sentence: str) -> Set[str]:
             nouns.add(word.lower())
 
     return nouns
+
+
+def tag_words_by_part_of_speech(words: List[str]) -> List[Tuple[str, str]]:
+    """
+    Tages words with their part of speech
+    :param words: words from natural language
+    :return: tagged words
+    """
+    return pos_tag(words, lang='rus')
+
+
+def get_parts_of_speech(words: List[str]) -> List[str]:
+    """
+    Gets parts of speech of given words without gender
+    :param words: words from natural language
+    :return: parts of speech
+    """
+    return list(map(lambda t: t[1].split('=')[0], tag_words_by_part_of_speech(words)))

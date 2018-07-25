@@ -4,7 +4,7 @@ Module for text generating
 import random
 import re
 import string
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Callable
 from time import process_time
 
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -240,12 +240,59 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         super().__init__(base_text)
         self._text_structures: Set[str] = set()
         self._text_structures_ends: Dict[str, List[str]] = dict()
+        self._pronoun_verb_ending_links = dict()
         lines = base_text.split('\n')
         for line in lines:
             p_o_s_string = self._make_part_of_speech_string(line)
             line_ends = re.findall('|'.join(list(map(re.escape, self._ends))) + '$', line)
             self._text_structures.add(p_o_s_string)
             self._text_structures_ends[p_o_s_string] = self._text_structures_ends.get(p_o_s_string, list()) + line_ends
+            self._create_pronoun_verb_ending_links(line)
+
+    @staticmethod
+    def _iterate_through_pronoun_with_verb(text: str, f: Callable[[str, str], None]) -> None:
+        reg = '(?:' + LETTERS_REGEX + '|[ \-—])+'
+        sub_sentences = re.findall(reg, text)
+        for s_s in sub_sentences:
+            words = word_tokenize(s_s)
+            tagged = pos_tag(words, lang='rus')
+            pronouns_and_verbs = list(filter(lambda x: x[1] in {PARTS_OF_SPEECH['verb'],
+                                                                PARTS_OF_SPEECH['personal pronoun']}, tagged))
+            for i, word in enumerate(pronouns_and_verbs):
+                current_i = i
+                next_i = i + 1
+                if current_i < len(pronouns_and_verbs) - 1 \
+                        and pronouns_and_verbs[current_i][1] == PARTS_OF_SPEECH['personal pronoun'] \
+                        and pronouns_and_verbs[next_i][1] == PARTS_OF_SPEECH['verb']:
+                    pronoun = pronouns_and_verbs[current_i][0].lower()
+                    verb = pronouns_and_verbs[next_i][0].lower()
+                    f(pronoun, verb)
+
+    @staticmethod
+    def _get_word_ending(word: str):
+        return word[len(stem(word)):]
+
+    def _create_pronoun_verb_ending_links(self, text: str) -> None:
+        links = self._pronoun_verb_ending_links
+
+        def add_pronoun_verb_link(pronoun: str, verb: str):
+            link = links.get(pronoun, set())
+            link.add(self._get_word_ending(verb))
+            links[pronoun] = link
+
+        self._iterate_through_pronoun_with_verb(text, add_pronoun_verb_link)
+
+    def _check_pronoun_verb_endings(self, text: str) -> bool:
+        result = [True]
+
+        def update_check_result(pronoun: str, verb: str) -> None:
+            verb_ending = self._get_word_ending(verb)
+            result[0] &= pronoun in self._pronoun_verb_ending_links \
+                         and verb_ending in self._pronoun_verb_ending_links[pronoun]
+
+        self._iterate_through_pronoun_with_verb(text, update_check_result)
+
+        return result[0]
 
     def _polish_text(self, text: str):
         result = super()._polish_text(text)
@@ -272,8 +319,10 @@ class PartsOfSpeechTextGenerator(TextGenerator):
                          and parts_of_speech[-1] == PARTS_OF_SPEECH['other'] else parts_of_speech)
 
     def _evaluate_text(self, text):
+        regex = '^' + LETTERS_REGEX
         check_string = self._make_part_of_speech_string(text)
-        return check_string in self._text_structures  # and super()._evaluate_text(text)
+        return check_string in self._text_structures and self._check_pronoun_verb_endings(text) \
+               and re.search(regex, text)
 
     def _add_end_punct(self, text: str) -> str:
         p_o_s_string = self._make_part_of_speech_string(text)

@@ -50,7 +50,7 @@ def agent_testing():
 
 def text_generating():
     base_path = os.path.join('data', 'text', 'speech_base.txt')
-    test_path = os.path.join('data', 'tests', 'test0.txt')
+    test_path = os.path.join('data', 'tests', 'test4.txt')
 
     with open(base_path, 'r') as file:
         text_gen = PartsOfSpeechTextGenerator(file.read())
@@ -62,7 +62,7 @@ def text_generating():
         print('in:\t', line)
         replies = text_gen.generate_from_input(line)
         if replies:
-            print('out:\t', replies)
+            print('out:\t', random.choice(list(replies)))
         else:
             print('out:\t')
         print()
@@ -79,3 +79,6 @@ def dialog_imitation():
         while not answers:
             answers = text_gen.generate()
         print('>>', random.choice(list(answers)))
+
+
+text_generating()

@@ -40,7 +40,8 @@ DOWN_VOTE = 'down vote'
 UP_VOTE = 'up vote'
 
 # date of the bot start
-START_TIME = time.time()
+START_DATE = time.time()
+
 
 def set_proxy() -> None:
     """
@@ -115,7 +116,8 @@ def text_reply(message: telebot.types.Message) -> None:
     is_directed = is_private or is_reply
 
     # ignore messages that were send when the bot was not working
-    if not is_directed and message.date < START_TIME:
+    # except ones that were directed to bot
+    if not is_directed and message.date < START_DATE:
         return
 
     reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_directed, False)
@@ -177,7 +179,6 @@ def reply_message(message: telebot.types.Message, reply: str, is_reply: bool) ->
     :param is_reply: True if reply_to() method should be used or False if send_message()
     :return: None
     """
-
 
     if not reply:
         LOGGER.error("empty reply in reply_message()")

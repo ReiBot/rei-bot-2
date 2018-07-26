@@ -215,25 +215,27 @@ def callback_inline(call: telebot.types.CallbackQuery) -> None:
 
         grading_message.update_grade()
 
-        # learning
-        agents.LEARNING_AGENT.rating_learn(grading_message.input_message,
-                                           grading_message.reply_message,
-                                           grading_message.get_change_difference())
-
         # attaching keyboard to message
         keyboard = make_voting_keyboard(grading_message.get_likes_num(),
                                         grading_message.get_dislikes_num())
         BOT.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id,
                                       reply_markup=keyboard)
 
-        BOT.answer_callback_query(call.id)
+        # learning
+        agents.LEARNING_AGENT.rating_learn(grading_message.input_message,
+                                           grading_message.reply_message,
+                                           grading_message.get_change_difference())
+
+    BOT.answer_callback_query(call.id)
 
 
 # Remove webhook, it fails sometimes the set if there is a previous webhook
 BOT.remove_webhook()
 
+
 # Set webhook
-BOT.set_webhook(url=URL_BASE + URL_PATH, certificate=open(CONFIG['ssl']['certificate'], 'r'))
+URL = URL_BASE + URL_PATH
+BOT.set_webhook(url=URL, certificate=open(CONFIG['ssl']['certificate'], 'rb'), max_connections=10)
 
 # Build ssl context
 CONTEXT = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
@@ -242,7 +244,7 @@ CONTEXT.load_cert_chain(CONFIG['ssl']['certificate'], CONFIG['ssl']['private key
 # Start aiohttp server
 web.run_app(
     APP,
-    host=CONFIG['server']['ip'],
+    host=CONFIG['server']['listen'],
     port=CONFIG['server']['port'],
     ssl_context=CONTEXT,
 )

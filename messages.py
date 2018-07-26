@@ -1,7 +1,8 @@
 """Module for operating on telegram messages"""
 
-from telebot.types import Message
 from typing import Set
+
+from telebot.types import Message
 
 import logger
 
@@ -14,19 +15,24 @@ class GradableMessage:
     For storing information about grading message which is used for agent learning
     """
 
-    # attribute that represents 'grade' of the reply on message based on ratio of likes and dislikes
-    # where -1 is for dislikes > likes 0 is for equality and 1 is for likes > dislikes
-    _grade: [-1, 0, 1] = 0
+    # attribute that represents 'grade' of the reply on message
+    # based on ratio of likes and dislikes
+    _grade: int = 0
+
+    # 1 if grade was increased -1 otherwise
+    _change_difference: [-1, 1] = 0
 
     _likes_num: int = 0
     _dislikes_num: int = 0
 
-    def __init__(self, message: Message, reply_message: str):
+    def __init__(self, message: Message, input_message: str):
         self._users_liked: Set[int] = set()
         self._users_disliked: Set[int] = set()
+        # message that bot sent
         self.message = message
-        self.input_message = message.text
-        self.reply_message = reply_message
+        self.reply_message = message.text
+        # message that bot received
+        self.input_message = input_message
 
     def _update_likes_num(self, user_id):
         if user_id in self._users_liked:
@@ -54,14 +60,11 @@ class GradableMessage:
         :return: True if the grade was changed else False
         """
         old_grade = self._grade
-        if self._likes_num > self._dislikes_num:
-            self._grade = 1
-        elif self._likes_num < self._dislikes_num:
-            self._grade = -1
-        else:
-            self._grade = 0
+        self._grade = self._likes_num - self._dislikes_num
 
-        return True if self._grade != old_grade else False
+        self._change_difference = self._grade - old_grade
+
+        return self._change_difference != 0
 
     def up_vote(self, user_id: int) -> None:
         """
@@ -99,3 +102,10 @@ class GradableMessage:
         :return: grade
         """
         return self._grade
+
+    def get_change_difference(self) -> int:
+        """
+        Gets change sign
+        :return: change sign
+        """
+        return self._change_difference

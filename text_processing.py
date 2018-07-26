@@ -18,15 +18,15 @@ PARTICULAR_STEMMED_CASES = {
 }
 
 PARTS_OF_SPEECH = {
-        'noun': 'S',
-        'verb': 'V',
-        'personal pronoun': 'S-PRO',
-        'connecting words': 'CONJ',
-        'part': 'PART',
-        'other': 'NONLEX',
-        'adjective': 'A',
-        'negative pronoun': 'PRAEDIC-PRO'
-    }
+    'noun': 'S',
+    'verb': 'V',
+    'personal pronoun': 'S-PRO',
+    'connecting words': 'CONJ',
+    'part': 'PART',
+    'other': 'NONLEX',
+    'adjective': 'A',
+    'negative pronoun': 'PRAEDIC-PRO'
+}
 
 
 def stem(word: str) -> str:

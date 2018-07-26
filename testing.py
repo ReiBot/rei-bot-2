@@ -38,7 +38,8 @@ def test_reply_agent(agent_function: "agent's function to process input message"
     json_manager.write(test_output, test_output_file_name)
 
 
-def agent_testing():
+def agent_testing() -> None:
+    """Tests agents"""
     test_numbers = [1, 0, 2]
 
     for test_n in test_numbers:
@@ -48,9 +49,15 @@ def agent_testing():
                              test_output_file_name=f'test_output_CONVERSATION_CONTROLLER_n_{str(test_n)}.txt')
 
 
-def text_generating():
+def text_generating(test_n: int = 0, all_replies: bool = False) -> None:
+    """
+    Tests text generation using text tests
+    :param test_n: # of the test
+    :param all_replies: indicates that all replies should be printed
+    :return: None
+    """
     base_path = os.path.join('data', 'text', 'speech_base.txt')
-    test_path = os.path.join('data', 'tests', 'test2.txt')
+    test_path = os.path.join('data', 'tests', f'test{test_n}.txt')
 
     with open(base_path, 'r') as file:
         text_gen = PartsOfSpeechTextGenerator(file.read())
@@ -62,13 +69,20 @@ def text_generating():
         print('in:\t', line)
         replies = text_gen.generate_from_input(line)
         if replies:
-            print('out:\t', replies)
+            if all_replies:
+                print('out:\t', replies)
+            else:
+                print('out:\t', random.choice(list(replies)))
         else:
             print('out:\t')
         print()
 
 
-def dialog_imitation():
+def dialog_imitation() -> None:
+    """
+    Imitates dialog using text generation through console input
+    :return: None
+    """
     base_path = os.path.join('data', 'text', 'speech_base.txt')
     with open(base_path, 'r') as file:
         text_gen = PartsOfSpeechTextGenerator(file.read())

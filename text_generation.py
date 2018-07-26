@@ -13,7 +13,7 @@ from text_processing import stem, tag_words_by_part_of_speech, PARTS_OF_SPEECH, 
 import logger
 
 
-LETTERS_REGEX = '[^\W\d_]'
+LETTERS_REGEX = r'[^\W\d_]'
 END_PUNCT_REGEX = '[!.?]'
 
 LOGGER = logger.get_logger(__file__)
@@ -39,6 +39,9 @@ def measure_run_time(func: Callable) -> Callable:
 
 
 class TextGenerator:
+    """
+    For text generation
+    """
     def __init__(self, base_text: str):
         """
         :param base_text: text which is used for generation
@@ -176,7 +179,8 @@ class TextGenerator:
         return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
 
-    def _evaluate_text(self, text: str) -> bool:
+    @staticmethod
+    def _evaluate_text(text: str) -> bool:
         """
         Checks if the text is complete
         :param text: text to check
@@ -184,11 +188,6 @@ class TextGenerator:
         """
         # regex to check if the text is complete
         check_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
-
-        """
-        known_words = list(filter(lambda w: not re.search(END_PUNCT_REGEX, w) and
-                                  w in self._words, word_tokenize(text)))
-        """
         return re.search(check_regex, text)
 
     def generate(self, start_word: str = None,
@@ -295,21 +294,21 @@ class PartsOfSpeechTextGenerator(TextGenerator):
             self._create_pronoun_verb_ending_links(line)
 
     @staticmethod
-    def _iterate_through_pronoun_with_verb(text: str, f: Callable[[str, str], None]) -> None:
+    def _iterate_through_pronoun_with_verb(text: str, func: Callable[[str, str], None]) -> None:
         """
         iterates through each pronoun in the text that has a verb after it
         :param text: text to use
-        :param f: function that is called when a needed pronoun and verb are found
+        :param func: function that is called when a needed pronoun and verb are found
         :return: None
         """
-        sub_sentence_reg = '(?:' + LETTERS_REGEX + '|[ \-—])+'
+        sub_sentence_reg = r'(?:' + LETTERS_REGEX + r'|[ \-—])+'
         sub_sentences = re.findall(sub_sentence_reg, text)
         for s_s in sub_sentences:
             words = word_tokenize(s_s)
             tagged = tag_words_by_part_of_speech(words)
             pronouns_and_verbs = list(filter(lambda x: x[1] in {PARTS_OF_SPEECH['verb'],
                                                                 PARTS_OF_SPEECH['personal pronoun']}, tagged))
-            for i, word in enumerate(pronouns_and_verbs):
+            for i in range(0, len(pronouns_and_verbs)):
                 current_i = i
                 next_i = i + 1
                 if current_i < len(pronouns_and_verbs) - 1 \
@@ -317,7 +316,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
                         and pronouns_and_verbs[next_i][1] == PARTS_OF_SPEECH['verb']:
                     pronoun = pronouns_and_verbs[current_i][0].lower()
                     verb = pronouns_and_verbs[next_i][0].lower()
-                    f(pronoun, verb)
+                    func(pronoun, verb)
 
     @staticmethod
     def _get_word_ending(word: str) -> str:
@@ -358,6 +357,12 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         result = [True]
 
         def update_check_result(pronoun: str, verb: str) -> None:
+            """
+            updates result value depending on verb ending check
+            :param pronoun:
+            :param verb:
+            :return: None
+            """
             verb_ending = self._get_word_ending(verb)
             result[0] &= pronoun in self._pronoun_verb_ending_links \
                          and verb_ending in self._pronoun_verb_ending_links[pronoun]

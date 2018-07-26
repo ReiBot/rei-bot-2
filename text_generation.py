@@ -217,9 +217,11 @@ class TextGenerator:
             max_word_num = self.max_sent_length
         result = set()
 
-        max_stack_num = 1_000
+        max_iter_num = 500
 
-        while variants_stack and len(variants_stack) < max_stack_num:
+        i = 0
+        while variants_stack and i < max_iter_num:
+            i += 1
             popped = variants_stack.pop()
             joined = ' '.join(popped)
             if len(popped) < max_word_num:
@@ -357,8 +359,8 @@ class PartsOfSpeechTextGenerator(TextGenerator):
 
         def update_check_result(pronoun: str, verb: str) -> None:
             verb_ending = self._get_word_ending(verb)
-            result[0] &= pronoun not in self._pronoun_verb_ending_links \
-                         or verb_ending in self._pronoun_verb_ending_links[pronoun]
+            result[0] &= pronoun in self._pronoun_verb_ending_links \
+                         and verb_ending in self._pronoun_verb_ending_links[pronoun]
 
         self._iterate_through_pronoun_with_verb(text, update_check_result)
 

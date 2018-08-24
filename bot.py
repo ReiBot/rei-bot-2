@@ -6,7 +6,6 @@ import time
 import os.path
 import ssl
 from configparser import ConfigParser
-from typing import Callable
 
 import telebot
 import emoji
@@ -42,7 +41,6 @@ UP_VOTE = 'up vote'
 
 # date of the bot start
 START_DATE = time.time()
-MESSAGE_ACTUALITY_PERIOD = 6*60*60*60  # six hours in seconds
 
 
 def set_proxy() -> None:
@@ -85,30 +83,6 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
-def check_message_actuality(func: Callable, actuality_period: int) -> Callable:
-    """
-    Wrapper that checks if the group message is not too old to handle it
-    :param func: handler for Telegram messages
-    :param actuality_period: [seconds] period that limits the age of user's message
-    :return: wrapped handler
-    """
-    def check_and_handle_message(message: telebot.types.Message) -> None:
-        """
-        Ignores messages that were sent when the bot was not working
-        except the ones that were sent not earlier that given period
-        :param message: message to handle
-        :return: None
-        """
-        if message and isinstance(message, telebot.types.Message) and message.chat.type != PRIVATE_MESSAGE:
-            difference = START_DATE - message.date
-            difference = difference if difference >= 0 else actuality_period
-            if difference > actuality_period:
-                return None
-        return func(message)
-    return check_and_handle_message
-
-
-@check_message_actuality(MESSAGE_ACTUALITY_PERIOD)
 @BOT.message_handler(commands=['ask'])
 def command_reply(message: telebot.types.Message) -> None:
     """
@@ -126,7 +100,7 @@ def command_reply(message: telebot.types.Message) -> None:
                   not is_private)
 
 
-@check_message_actuality(MESSAGE_ACTUALITY_PERIOD)
+# Handle text messages
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
 def text_reply(message: telebot.types.Message) -> None:
     """
@@ -140,6 +114,11 @@ def text_reply(message: telebot.types.Message) -> None:
     as_reply = True if not is_private else False
     # indicates if the message is directed to the bot
     is_directed = is_private or is_reply
+
+    # ignore messages that were send when the bot was not working
+    # except ones that were directed to bot
+    if not is_directed and message.date < START_DATE:
+        return
 
     reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_directed, False)
     if reply:

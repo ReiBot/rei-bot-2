@@ -15,15 +15,9 @@ class GradableMessage:
     For storing information about grading message which is used for agent learning
     """
 
-    # -1 is for dislikes > likes
-    _negative_grade = -1
-    # 1 is for likes > dislikes
-    _positive_grade = 1
-    # 0 is when equal
-    _neutral_grade = 0
     # attribute that represents 'grade' of the reply on message
     # based on ratio of likes and dislikes
-    _grade: [_negative_grade, _neutral_grade, _positive_grade] = 0
+    _grade: int = 0
 
     # 1 if grade was increased -1 otherwise
     _change_difference: [-1, 1] = 0
@@ -66,12 +60,7 @@ class GradableMessage:
         :return: True if the grade was changed else False
         """
         old_grade = self._grade
-        if self._likes_num > self._dislikes_num:
-            self._grade = self._positive_grade
-        elif self._likes_num < self._dislikes_num:
-            self._grade = self._negative_grade
-        else:
-            self._grade = self._neutral_grade
+        self._grade = self._likes_num - self._dislikes_num
 
         self._change_difference = self._grade - old_grade
 

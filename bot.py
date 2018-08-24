@@ -6,6 +6,7 @@ import time
 import os.path
 import ssl
 from configparser import ConfigParser
+from typing import Callable
 
 import telebot
 import emoji
@@ -41,6 +42,7 @@ UP_VOTE = 'up vote'
 
 # date of the bot start
 START_DATE = time.time()
+MESSAGE_ACTUALITY_PERIOD = 6*60*60*60  # six hours in seconds
 
 
 def set_proxy() -> None:

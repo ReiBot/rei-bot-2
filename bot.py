@@ -83,7 +83,35 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
+def check_message_actuality(actuality_period: int) -> Callable:
+    """
+    Wrapper that checks if the group message is not too old to handle it
+    :param actuality_period: [seconds] period that limits the age of user's message
+    :return: wrapped handler
+    """
+    def wrap(func: Callable) -> Callable:
+        """
+        :param func: handler for Telegram messages
+        """
+        def check_and_handle_message(message: telebot.types.Message) -> None:
+            """
+            Ignores messages that were sent when the bot was not working
+            except the ones that were sent not earlier that given period
+            :param message: message to handle
+            :return: None
+            """
+            if message and isinstance(message, telebot.types.Message) and message.chat.type != PRIVATE_MESSAGE:
+                difference = START_DATE - message.date
+                difference = difference if difference >= 0 else actuality_period
+                if difference > actuality_period:
+                    return None
+            return func(message)
+        return check_and_handle_message
+    return wrap
+
+
 @BOT.message_handler(commands=['ask'])
+@check_message_actuality(MESSAGE_ACTUALITY_PERIOD)
 def command_reply(message: telebot.types.Message) -> None:
     """
     Handler for /ask command
@@ -100,8 +128,8 @@ def command_reply(message: telebot.types.Message) -> None:
                   not is_private)
 
 
-# Handle text messages
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
+@check_message_actuality(MESSAGE_ACTUALITY_PERIOD)
 def text_reply(message: telebot.types.Message) -> None:
     """
     Handler for private and group text messages from users

@@ -6,6 +6,7 @@ import time
 import os.path
 import ssl
 from configparser import ConfigParser
+from typing import Callable
 
 import telebot
 import emoji
@@ -83,6 +84,30 @@ async def handle(request: web.Request) -> web.Response:
 APP.router.add_post('/{token}/', handle)
 
 
+def check_message_freshness(func: Callable) -> Callable:
+    """
+    Wrapper that checks if the message is not too older to handle it
+    :param func: handler for Telegram messages
+    :return: wrapped handler
+    """
+    def check_and_handle_message(message: telebot.types.Message) -> None:
+        """
+        ignore messages that were send when the bot was not working
+        except ones that were sent during last hour
+        :param message: message to handle
+        :return: None
+        """
+        hour = 216000  # seconds
+        if message and isinstance(message, telebot.types.Message):
+            difference = START_DATE - message.date
+            difference = difference if difference >= 0 else hour
+            if difference > hour:
+                return None
+        return func(message)
+    return check_and_handle_message
+
+
+@check_message_freshness
 @BOT.message_handler(commands=['ask'])
 def command_reply(message: telebot.types.Message) -> None:
     """
@@ -101,6 +126,7 @@ def command_reply(message: telebot.types.Message) -> None:
 
 
 # Handle text messages
+@check_message_freshness
 @BOT.message_handler(func=lambda message: True, content_types=['text'])
 def text_reply(message: telebot.types.Message) -> None:
     """
@@ -114,11 +140,6 @@ def text_reply(message: telebot.types.Message) -> None:
     as_reply = True if not is_private else False
     # indicates if the message is directed to the bot
     is_directed = is_private or is_reply
-
-    # ignore messages that were send when the bot was not working
-    # except ones that were directed to bot
-    if not is_directed and message.date < START_DATE:
-        return
 
     reply = agents.CONVERSATION_CONTROLLER.proceed_input_message(text, is_directed, False)
     if reply:

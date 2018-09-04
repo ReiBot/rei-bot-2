@@ -190,23 +190,24 @@ class TextGenerator:
         check_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
         return re.search(check_regex, text)
 
-    def generate(self, start_word: str = None,
+    def generate(self, start_words: List[str] = None,
                  begin_links: Dict[str, Set[str]] = None,
                  end_links: Dict[str, Set[str]] = None,
                  max_word_num: int = None) -> Set[str]:
         """
         Generates texts
-        :param start_word: the word from which the generation starts
+        :param start_words: the words from which the generation starts
         :param begin_links: links from words to the previous ones
         :param end_links: links from words to next ones
         :param max_word_num: max number of words in each generated text
         :return: unique generated texts
         """
         variants_stack = list()
-        if not start_word:
+        if not start_words:
             variants_stack.append(random.choices(list(self._end_links.keys())))
         else:
-            variants_stack.append([start_word])
+            for word in start_words:
+                variants_stack.append([word])
 
         if not begin_links:
             begin_links = self._begin_links
@@ -216,11 +217,9 @@ class TextGenerator:
             max_word_num = self.max_sent_length
         result = set()
 
-        max_iter_num = 500
+        max_variants_num = 1000
 
-        i = 0
-        while variants_stack and i < max_iter_num:
-            i += 1
+        while variants_stack and len(variants_stack) < max_variants_num:
             popped = variants_stack.pop()
             joined = ' '.join(popped)
             if len(popped) < max_word_num:
@@ -237,8 +236,13 @@ class TextGenerator:
 
                 if self._evaluate_text(joined):
                     result.add(self._polish_text(joined))
-                else:
-                    random.shuffle(variants_stack)
+
+            random.shuffle(variants_stack)
+
+        for variant in variants_stack:
+            joined = ' '.join(variant)
+            if self._evaluate_text(joined):
+                result.add(self._polish_text(joined))
 
         return result
 
@@ -261,17 +265,13 @@ class TextGenerator:
         for sentence in sentences:
             words = word_tokenize(sentence)
             tagged = tag_words_by_part_of_speech(words)
-            important_words = list(filter(lambda t_w: t_w[1] in {PARTS_OF_SPEECH['noun'],
-                                                                 PARTS_OF_SPEECH['personal pronoun'],
-                                                                 PARTS_OF_SPEECH['verb']}, tagged))
-            start_words += list(map(lambda w: w[0], important_words))
+            start_words += list(map(lambda tag: tag[0], filter(lambda tag: tag[1] != PARTS_OF_SPEECH['other'], tagged)))
 
         stemmed = set(map(stem, start_words))
-        extra_words = list(filter(lambda word: stem(word) in stemmed, self._words))
+        extra_words = list(filter(lambda word: stem(word) in stemmed and word not in start_words, self._words))
         start_words += extra_words
 
-        for word in set(start_words):
-            result += self.generate(start_word=word, begin_links=custom_begin_links, end_links=custom_end_links)
+        result += self.generate(start_words=start_words, begin_links=custom_begin_links, end_links=custom_end_links)
 
         return set(result)
 

@@ -12,6 +12,11 @@ import logger
 STEMMER = RussianStemmer()
 LOGGER = logger.get_logger(__file__)
 
+# particular cases of stemming
+PARTICULAR_STEMMED_CASES = {
+    "рей": "рей"
+}
+
 
 def stem(word: str) -> str:
     """
@@ -27,7 +32,7 @@ def stem(word: str) -> str:
         LOGGER.error("input value is not a string")
         return None
 
-    return STEMMER.stem(word)
+    return PARTICULAR_STEMMED_CASES.get(word.lower(), STEMMER.stem(word))
 
 
 def get_nouns(sentence: str) -> Set[str]:

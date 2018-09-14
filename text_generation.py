@@ -265,11 +265,13 @@ class TextGenerator:
         for sentence in sentences:
             words = word_tokenize(sentence)
             tagged = tag_words_by_part_of_speech(words)
-            start_words += list(map(lambda tag: tag[0], filter(lambda tag: tag[1] != PARTS_OF_SPEECH['other'], tagged)))
-
-        stemmed = set(map(stem, start_words))
-        extra_words = list(filter(lambda word: stem(word) in stemmed and word not in start_words, self._words))
-        start_words += extra_words
+            start_words += list(map(lambda tag: tag[0], filter(lambda tag: tag[1] in
+                                                                           {
+                                                                               PARTS_OF_SPEECH['verb'],
+                                                                               PARTS_OF_SPEECH['noun']
+                                                                           }, tagged)))
+            if not start_words:
+                start_words += list(map(lambda tag: tag[0], filter(lambda tag: tag[1] != PARTS_OF_SPEECH['other'], tagged)))
 
         result += self.generate(start_words=start_words, begin_links=custom_begin_links, end_links=custom_end_links)
 

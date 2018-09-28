@@ -9,7 +9,7 @@ from text_generation import PartsOfSpeechTextGenerator
 
 TEXT_GENERATING_CLASSES = [PartsOfSpeechTextGenerator]
 
-TEST_NUMBERS = [1, 0, 2]
+TEST_NUMBERS = [5]
 
 BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
 

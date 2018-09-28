@@ -1,5 +1,5 @@
 """
-Module for text generating
+Module that contains classes that can be used for text generating
 """
 import random
 import re
@@ -40,8 +40,17 @@ def measure_run_time(func: Callable) -> Callable:
 
 class TextGenerator:
     """
-    For text generation
+    Base class for text generation using the simplified version of Markov's chains
     """
+
+    _PAIR_PUNCTS = {
+        "''": '``',
+        '(': ')',
+        '[': ']',
+        '{': '}',
+        '«': '»'
+    }
+
     def __init__(self, base_text: str):
         """
         :param base_text: text which is used for generation
@@ -134,14 +143,7 @@ class TextGenerator:
             result = result.replace(up, up[:3])
 
         # remove paired symbols without pair
-        pair_puncts = {
-            "''": '``',
-            '(': ')',
-            '[': ']',
-            '{': '}',
-            '«': '»'
-        }
-        for key, value in pair_puncts.items():
+        for key, value in self._PAIR_PUNCTS.items():
             if re.search(re.escape(key), result) and not re.search(re.escape(value), result):
                 result = result.replace(key, '')
             elif re.search(re.escape(value), result) and not re.search(re.escape(key), result):
@@ -150,8 +152,8 @@ class TextGenerator:
         result = result.replace(',.', '.')
 
         # remove empty parenthesis
-        empty_pairs = re.findall('(' + re.escape('|'.join(pair_puncts.keys())) + ')' + ' '
-                                 + '(' + re.escape('|'.join(pair_puncts.values())) + ')', result)
+        empty_pairs = re.findall('(' + re.escape('|'.join(self._PAIR_PUNCTS.keys())) + ')' + ' '
+                                 + '(' + re.escape('|'.join(self._PAIR_PUNCTS.values())) + ')', result)
         for e_p in empty_pairs:
             result = result.replace(e_p, ' ')
 
@@ -179,8 +181,7 @@ class TextGenerator:
         return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
 
-    @staticmethod
-    def _evaluate_text(text: str) -> bool:
+    def _evaluate_text(self, text: str) -> bool:
         """
         Checks if the text is complete
         :param text: text to check
@@ -195,7 +196,8 @@ class TextGenerator:
                  end_links: Dict[str, Set[str]] = None,
                  max_word_num: int = None) -> Set[str]:
         """
-        Generates texts
+        Generates texts starting with the given words and adding sequentially adding the words
+        to the end and to the begin and then evaluating texts in order to choose the correctly generated ones.
         :param start_words: the words from which the generation starts
         :param begin_links: links from words to the previous ones
         :param end_links: links from words to next ones
@@ -278,6 +280,56 @@ class TextGenerator:
         return set(result)
 
 
+def iterate_through_pronoun_with_verb(text: str, func: Callable[[str, str], None]) -> None:
+    """
+    iterates through each pronoun in the text that has a verb after it
+    :param text: text to use
+    :param func: function that is called when a needed pronoun and verb are found
+    :return: None
+    """
+    sub_sentence_reg = r'(?:' + LETTERS_REGEX + r'|[ \-—])+'
+    sub_sentences = re.findall(sub_sentence_reg, text)
+    for s_s in sub_sentences:
+        words = word_tokenize(s_s)
+        tagged = tag_words_by_part_of_speech(words)
+        pronouns_and_verbs = list(filter(lambda x: x[1] in {PARTS_OF_SPEECH['verb'],
+                                                            PARTS_OF_SPEECH['personal pronoun']}, tagged))
+        for i in range(0, len(pronouns_and_verbs)):
+            current_i = i
+            next_i = i + 1
+            if current_i < len(pronouns_and_verbs) - 1 \
+                    and pronouns_and_verbs[current_i][1] == PARTS_OF_SPEECH['personal pronoun'] \
+                    and pronouns_and_verbs[next_i][1] == PARTS_OF_SPEECH['verb']:
+                pronoun = pronouns_and_verbs[current_i][0].lower()
+                verb = pronouns_and_verbs[next_i][0].lower()
+                func(pronoun, verb)
+
+
+def get_word_ending(word: str) -> str:
+    """
+    Gets an ending of the word
+    :param word: word
+    :return: ending of the word
+    """
+    return word[len(stem(word)):]
+
+
+def make_part_of_speech_string(text: str) -> str:
+    """
+    Makes a string that consists of parts of speech names without the ending punctuation
+    :param text: natural language text
+    :return: produced string
+    """
+    parts_of_speech = list()
+    sentences = sent_tokenize(text)
+    for sentence in sentences:
+        words = word_tokenize(sentence)
+        parts_of_speech += get_parts_of_speech(words)
+
+    return ' '. join(parts_of_speech[:-1] if len(parts_of_speech) > 1
+                     and parts_of_speech[-1] == PARTS_OF_SPEECH['other'] else parts_of_speech)
+
+
 class PartsOfSpeechTextGenerator(TextGenerator):
     """
     Same as its parent but evaluates text using order of parts of speech got from speech base
@@ -289,45 +341,11 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         self._pronoun_verb_ending_links = dict()
         lines = base_text.split('\n')
         for line in lines:
-            p_o_s_string = self._make_part_of_speech_string(line)
+            p_o_s_string = make_part_of_speech_string(line)
             line_ends = re.findall('|'.join(list(map(re.escape, self._ends))) + '$', line)
             self._text_structures.add(p_o_s_string)
             self._text_structures_ends[p_o_s_string] = self._text_structures_ends.get(p_o_s_string, list()) + line_ends
             self._create_pronoun_verb_ending_links(line)
-
-    @staticmethod
-    def _iterate_through_pronoun_with_verb(text: str, func: Callable[[str, str], None]) -> None:
-        """
-        iterates through each pronoun in the text that has a verb after it
-        :param text: text to use
-        :param func: function that is called when a needed pronoun and verb are found
-        :return: None
-        """
-        sub_sentence_reg = r'(?:' + LETTERS_REGEX + r'|[ \-—])+'
-        sub_sentences = re.findall(sub_sentence_reg, text)
-        for s_s in sub_sentences:
-            words = word_tokenize(s_s)
-            tagged = tag_words_by_part_of_speech(words)
-            pronouns_and_verbs = list(filter(lambda x: x[1] in {PARTS_OF_SPEECH['verb'],
-                                                                PARTS_OF_SPEECH['personal pronoun']}, tagged))
-            for i in range(0, len(pronouns_and_verbs)):
-                current_i = i
-                next_i = i + 1
-                if current_i < len(pronouns_and_verbs) - 1 \
-                        and pronouns_and_verbs[current_i][1] == PARTS_OF_SPEECH['personal pronoun'] \
-                        and pronouns_and_verbs[next_i][1] == PARTS_OF_SPEECH['verb']:
-                    pronoun = pronouns_and_verbs[current_i][0].lower()
-                    verb = pronouns_and_verbs[next_i][0].lower()
-                    func(pronoun, verb)
-
-    @staticmethod
-    def _get_word_ending(word: str) -> str:
-        """
-        Gets an ending of the word
-        :param word: word
-        :return: ending of the word
-        """
-        return word[len(stem(word)):]
 
     def _create_pronoun_verb_ending_links(self, text: str) -> None:
         """
@@ -340,15 +358,15 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         def add_pronoun_verb_link(pronoun: str, verb: str) -> None:
             """
             Adds the link
-            :param pronoun:
-            :param verb:
+            :param pronoun: word that is classified as pronoun
+            :param verb: word that is classified as verb
             :return: None
             """
             link = links.get(pronoun, set())
-            link.add(self._get_word_ending(verb))
+            link.add(get_word_ending(verb))
             links[pronoun] = link
 
-        self._iterate_through_pronoun_with_verb(text, add_pronoun_verb_link)
+        iterate_through_pronoun_with_verb(text, add_pronoun_verb_link)
 
     def _check_pronoun_verb_endings(self, text: str) -> bool:
         """
@@ -361,15 +379,15 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         def update_check_result(pronoun: str, verb: str) -> None:
             """
             updates result value depending on verb ending check
-            :param pronoun:
-            :param verb:
+            :param pronoun: word that is classified as pronoun
+            :param verb: word that is classified as verb
             :return: None
             """
-            verb_ending = self._get_word_ending(verb)
+            verb_ending = get_word_ending(verb)
             result[0] &= pronoun in self._pronoun_verb_ending_links \
                          and verb_ending in self._pronoun_verb_ending_links[pronoun]
 
-        self._iterate_through_pronoun_with_verb(text, update_check_result)
+        iterate_through_pronoun_with_verb(text, update_check_result)
 
         return result[0]
 
@@ -393,29 +411,13 @@ class PartsOfSpeechTextGenerator(TextGenerator):
 
         return result
 
-    @staticmethod
-    def _make_part_of_speech_string(text: str) -> str:
-        """
-        Makes a string that consists of parts of speech names without the ending punctuation
-        :param text: natural language text
-        :return: produced string
-        """
-        parts_of_speech = list()
-        sentences = sent_tokenize(text)
-        for sentence in sentences:
-            words = word_tokenize(sentence)
-            parts_of_speech += get_parts_of_speech(words)
-
-        return ' '. join(parts_of_speech[:-1] if len(parts_of_speech) > 1
-                         and parts_of_speech[-1] == PARTS_OF_SPEECH['other'] else parts_of_speech)
-
     def _check_text_structure(self, text: str) -> bool:
         """
         Check if the text has the same parts of speech order as in the knowledge base
         :param text: generated text
         :return: indication of text validity
         """
-        check_string = self._make_part_of_speech_string(text)
+        check_string = make_part_of_speech_string(text)
         return check_string in self._text_structures
 
     def _evaluate_text(self, text) -> bool:
@@ -434,7 +436,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         :param text: generated text without ending punctuation
         :return: text with ending punctuation
         """
-        p_o_s_string = self._make_part_of_speech_string(text)
+        p_o_s_string = make_part_of_speech_string(text)
         ends = self._text_structures_ends.get(p_o_s_string, None)
         if not ends:
             ends = self._ends

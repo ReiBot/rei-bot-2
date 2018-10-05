@@ -21,19 +21,20 @@ LOGGER = logger.get_logger(__file__)
 
 def measure_run_time(func: Callable) -> Callable:
     """
-    Wrapper for measuring run time of a given function
+    Wrapper for measuring run time in ms of a given function
     :param func: function that will be run
     :return: result of wrapping the function
     """
     def call_and_measure(*args: Tuple, **kwargs: Dict) -> Any:
         """
-        Calls function and prints its run time
+        Calls function and prints its run time in ms
         :param kwargs: key arguments for calling the function
         :return: returned value of the function
         """
         start_time = process_time()
         result = func(*args, **kwargs)
-        print(func.__name__ + ' ' + str(process_time() - start_time))
+        run_time = process_time() - start_time
+        print(f'{func.__name__}: {run_time}')
         return result
     return call_and_measure
 
@@ -83,6 +84,12 @@ class TextGenerator:
     def _construct_links(self, sentences: List[str]) -> (Dict[str, Set[str]], Dict[str, Set[str]]):
         """
         Constructs links between words
+        Example:
+            Begin link: 'я': {'Впервые', 'Завтра', 'Если', 'это', 'А', ',', 'Кто', 'Что', 'Но', 'что', 'не', 'Это'}
+            The set contains all the words that occur in the given sentences before the word 'я'
+
+            End link: 'Да': {',', '?', '.'}
+            The set contains all the words that occur in the given sentences after the word 'Да'
         :param sentences: sentences from natural language
         :return: begin links and end links
         """
@@ -131,7 +138,7 @@ class TextGenerator:
 
     def _polish_text(self, text: str) -> str:
         """
-        Removes unwanted symbols from the generated text
+        Removes unwanted symbols from the generated text like redundant spaces and single brackets
         :param text: generated text
         :return: polished text
         """
@@ -181,11 +188,11 @@ class TextGenerator:
         return self._add_end_punct(result) \
             if re.search('[^'+re.escape(string.punctuation)+']$', result) else result
 
-    def _evaluate_text(self, text: str) -> bool:
+    def _is_text_correct(self, text: str) -> bool:
         """
-        Checks if the text is complete
+        Checks if the text is correct
         :param text: text to check
-        :return: True if complete False otherwise
+        :return: True if correct False otherwise
         """
         # regex to check if the text is complete
         check_regex = f'^{LETTERS_REGEX}.*{END_PUNCT_REGEX}$'
@@ -236,14 +243,14 @@ class TextGenerator:
                 for begin in begins:
                     variants_stack.append([begin] + popped)
 
-                if self._evaluate_text(joined):
+                if self._is_text_correct(joined):
                     result.add(self._polish_text(joined))
 
             random.shuffle(variants_stack)
 
         for variant in variants_stack:
             joined = ' '.join(variant)
-            if self._evaluate_text(joined):
+            if self._is_text_correct(joined):
                 result.add(self._polish_text(joined))
 
         return result
@@ -280,7 +287,7 @@ class TextGenerator:
         return set(result)
 
 
-def iterate_through_pronoun_with_verb(text: str, func: Callable[[str, str], None]) -> None:
+def iterate_through_pronouns_with_verb(text: str, func: Callable[[str, str], None]) -> None:
     """
     iterates through each pronoun in the text that has a verb after it
     :param text: text to use
@@ -366,7 +373,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
             link.add(get_word_ending(verb))
             links[pronoun] = link
 
-        iterate_through_pronoun_with_verb(text, add_pronoun_verb_link)
+        iterate_through_pronouns_with_verb(text, add_pronoun_verb_link)
 
     def _check_pronoun_verb_endings(self, text: str) -> bool:
         """
@@ -387,7 +394,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
             result[0] &= pronoun in self._pronoun_verb_ending_links \
                          and verb_ending in self._pronoun_verb_ending_links[pronoun]
 
-        iterate_through_pronoun_with_verb(text, update_check_result)
+        iterate_through_pronouns_with_verb(text, update_check_result)
 
         return result[0]
 
@@ -420,7 +427,7 @@ class PartsOfSpeechTextGenerator(TextGenerator):
         check_string = make_part_of_speech_string(text)
         return check_string in self._text_structures
 
-    def _evaluate_text(self, text) -> bool:
+    def _is_text_correct(self, text) -> bool:
         """
         Check if validity of the text
         :param text: generated text

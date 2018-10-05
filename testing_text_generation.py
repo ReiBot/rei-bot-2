@@ -16,11 +16,11 @@ BASE_PATH = os.path.join('data', 'text', 'speech_base.txt')
 
 class TestTextGenerating(unittest.TestCase):
     """
-    Class for testing text generation objects
+    Class for testing text generation objects' methods that produce generated messages using text message as an input
     """
     def test_text_generating(self) -> None:
         """
-        Tests text generation using text tests
+        Tests text generation by giving the generator text messages from test files and printing the replies
         :return: None
         """
 

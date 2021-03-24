@@ -14,7 +14,7 @@ PySocks==1.6.8
 pyTelegramBotAPI==3.6.3
 python-interface==1.4.0
 requests==2.20.1
-rsa==3.4.2
+rsa==4.1
 six==1.11.0
 urllib3==1.22
 yarl==1.2.4
